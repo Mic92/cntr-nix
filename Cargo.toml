@@ -17,7 +17,6 @@ exclude     = [
 
 [features]
 eventfd = []
-execvpe = []
 preadv_pwritev = []
 signalfd = []
 
