@@ -149,6 +149,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   ([#813](https://github.com/nix-rust/nix/pull/813))
 - Add socket options for `IP_TRANSPARENT` / `BIND_ANY`.
   ([#835](https://github.com/nix-rust/nix/pull/835))
+- Added `nix::dirent::{opendir, fdopendir, readdir, telldir, seekdir}`
+  ([#558](https://github.com/nix-rust/nix/pull/558))
 
 ### Changed
 - Exposed the `mqueue` module for all supported operating systems.

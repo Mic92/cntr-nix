@@ -11,6 +11,7 @@ extern crate tempdir;
 extern crate tempfile;
 
 mod sys;
+mod test_dirent;
 mod test_fcntl;
 #[cfg(any(target_os = "dragonfly",
           target_os = "freebsd",

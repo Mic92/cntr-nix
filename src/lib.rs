@@ -28,6 +28,8 @@ pub extern crate libc;
 // Private internal modules
 #[macro_use] mod macros;
 
+pub mod dirent;
+
 // Public crates
 pub mod errno;
 #[deny(missing_docs)]
