@@ -10,6 +10,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   ([#552](https://github.com/nix-rust/nix/pull/552), [#561](https://github.com/nix-rust/nix/pull/561))
 - Added `nix::stat::{chmod, fchmod, fchmodat, futimens, utimensat}` ([#561](https://github.com/nix-rust/nix/pull/561))
 - Added `nix::unistd::{chown, lchown, fchown, fchownat}` ([#561](https://github.com/nix-rust/nix/pull/561))
+- Added `nix::dirent::{opendir, fdopendir, readdir, telldir, seekdir, dirfd}`
+  ([#558](https://github.com/nix-rust/nix/pull/558))
 
 ### Changed
 - Marked `sys::mman::{ mmap, munmap, madvise, munlock, msync }` as unsafe.

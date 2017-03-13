@@ -8,6 +8,7 @@ extern crate tempfile;
 extern crate nix_test as nixtest;
 
 mod sys;
+mod test_dirent;
 mod test_fcntl;
 mod test_net;
 mod test_nix_path;
