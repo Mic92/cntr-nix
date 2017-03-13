@@ -24,6 +24,7 @@ pub extern crate libc;
 
 use errno::Errno;
 
+pub mod dirent;
 pub mod errno;
 pub mod features;
 pub mod fcntl;
