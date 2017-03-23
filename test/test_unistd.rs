@@ -1,6 +1,6 @@
 extern crate tempdir;
 
-use nix::fcntl::{fcntl, FcntlArg, FdFlag, OFlag};
+use nix::fcntl::{self, fcntl, FcntlArg, FdFlag, OFlag};
 use nix::unistd::*;
 use nix::unistd::ForkResult::*;
 use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal, sigaction};
@@ -336,6 +336,21 @@ fn test_lseek() {
     assert_eq!(b"f123456", &buf);
 
     close(tmpfd).unwrap();
+}
+
+#[test]
+fn test_unlinkat() {
+    let tempdir = TempDir::new("nix-test_unlinkat").unwrap();
+    let dirfd = fcntl::open(tempdir.path(),
+                            fcntl::OFlag::empty(),
+                            stat::Mode::empty());
+    let file = tempdir.path().join("foo");
+    File::create(&file).unwrap();
+
+    unlinkat(dirfd.unwrap(),
+            &file.file_name(),
+            fcntl::AtFlags::empty()).unwrap();
+    assert!(!file.exists());
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]

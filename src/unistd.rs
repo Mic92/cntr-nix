@@ -2,7 +2,7 @@
 
 use errno::{self, Errno};
 use {Error, Result, NixPath};
-use fcntl::{fcntl, FdFlag, OFlag};
+use fcntl::{AtFlags, fcntl, FdFlag, OFlag};
 use fcntl::FcntlArg::F_SETFD;
 use libc::{self, c_char, c_void, c_int, c_long, c_uint, size_t, pid_t, off_t,
            uid_t, gid_t, mode_t};
@@ -1003,6 +1003,17 @@ pub fn unlink<P: ?Sized + NixPath>(path: &P) -> Result<()> {
     let res = try!(path.with_nix_path(|cstr| {
         unsafe {
             libc::unlink(cstr.as_ptr())
+        }
+    }));
+    Errno::result(res).map(drop)
+}
+
+/// Delete a name and possibly the file it refers to
+/// ([posix specification](http://pubs.opengroup.org/onlinepubs/9699919799/functions/unlinkat.html)).
+pub fn unlinkat<P: ?Sized + NixPath>(fd: RawFd, pathname: &P, flags: AtFlags) -> Result<()> {
+    let res = try!(pathname.with_nix_path(|cstr| {
+        unsafe {
+            libc::unlinkat(fd, cstr.as_ptr(), flags.bits())
         }
     }));
     Errno::result(res).map(drop)
