@@ -305,6 +305,14 @@ pub fn mkdir<P: ?Sized + NixPath>(path: &P, mode: Mode) -> Result<()> {
     Errno::result(res).map(drop)
 }
 
+pub fn mkdirat<P: ?Sized + NixPath>(dirfd: RawFd, pathname: &P, mode: Mode) -> Result<()> {
+    let res = try!(pathname.with_nix_path(|cstr| {
+        unsafe { libc::mkdirat(dirfd, cstr.as_ptr(), mode.bits() as mode_t) }
+    }));
+
+    Errno::result(res).map(drop)
+}
+
 /// Returns the current directory as a PathBuf
 ///
 /// Err is returned if the current user doesn't have the permission to read or search a component
