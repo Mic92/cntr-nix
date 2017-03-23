@@ -57,6 +57,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Added nix::fcntl::{rename, renameat}.
   ([#752](https://github.com/nix-rust/nix/pull/752))
 
+- Added `nix::unistd::unlinkat`.
+  ([#753](https://github.com/nix-rust/nix/pull/753))
 
 ### Changed
 - Use native `pipe2` on all BSD targets.  Users should notice no difference.
