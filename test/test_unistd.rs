@@ -190,6 +190,22 @@ fn test_initgroups() {
     setgroups(&old_groups).unwrap();
 }
 
+#[test]
+fn test_mkdirat() {
+    let tempdir = TempDir::new("nix-test_mkdirat").unwrap();
+    let path = tempdir.path().join("test_path");
+
+    let dirfd = fcntl::open(tempdir.path(),
+                            fcntl::OFlag::empty(),
+                            stat::Mode::empty());
+
+    mkdirat(dirfd.unwrap(),
+            &path.file_name(),
+            stat::Mode::empty()).unwrap();
+
+    assert!(path.exists());
+}
+
 macro_rules! execve_test_factory(
     ($test_name:ident, $syscall:ident, $exe: expr $(, $pathname:expr, $flags:expr)*) => (
     #[test]
