@@ -153,6 +153,9 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   ([#558](https://github.com/nix-rust/nix/pull/558))
 - Added nix::sys::stat::mknod
   ([#747](https://github.com/nix-rust/nix/pull/747))
+- Added nix::fcntl::{rename, renameat}.
+  ([#752](https://github.com/nix-rust/nix/pull/752))
+
 
 ### Changed
 - Exposed the `mqueue` module for all supported operating systems.
