@@ -491,6 +491,16 @@ pub fn mkfifo<P: ?Sized + NixPath>(path: &P, mode: Mode) -> Result<()> {
     Errno::result(res).map(drop)
 }
 
+/// Create a directory
+/// ([posix specification)](http://pubs.opengroup.org/onlinepubs/9699919799/functions/mkdirat.html)).
+pub fn mkdirat<P: ?Sized + NixPath>(dirfd: RawFd, pathname: &P, mode: Mode) -> Result<()> {
+    let res = try!(pathname.with_nix_path(|cstr| {
+        unsafe { libc::mkdirat(dirfd, cstr.as_ptr(), mode.bits() as mode_t) }
+    }));
+
+    Errno::result(res).map(drop)
+}
+
 /// Returns the current directory as a `PathBuf`
 ///
 /// Err is returned if the current user doesn't have the permission to read or search a component
@@ -864,10 +874,10 @@ pub enum Whence {
 /// Move the read/write file offset.
 ///
 /// See also [lseek(2)](http://pubs.opengroup.org/onlinepubs/9699919799/functions/lseek.html)
-pub fn lseek(fd: RawFd, offset: off_t, whence: Whence) -> Result<off_t> {
+pub fn lseek(fd: RawFd, offset: libc::off_t, whence: Whence) -> Result<libc::off_t> {
     let res = unsafe { libc::lseek(fd, offset, whence as i32) };
 
-    Errno::result(res).map(|r| r as off_t)
+    Errno::result(res).map(|r| r as libc::off_t)
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
