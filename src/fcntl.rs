@@ -85,6 +85,31 @@ pub fn readlinkat<'a, P: ?Sized + NixPath>(dirfd: RawFd, path: &P, buffer: &'a m
     wrap_readlink_result(buffer, res)
 }
 
+pub fn rename<P1: ?Sized + NixPath, P2: ?Sized + NixPath>(oldpath: &P1, newpath: &P2) -> Result<()> {
+    let res = try!(try!(oldpath.with_nix_path(|old|
+        newpath.with_nix_path(|new|
+            unsafe { 
+                libc::rename(old.as_ptr() as *const c_char, new.as_ptr() as *const c_char)
+            }
+        )
+    )));
+
+    Errno::result(res).map(drop)
+}
+
+pub fn renameat<P1: ?Sized + NixPath, P2: ?Sized + NixPath>(olddirfd: RawFd, oldpath: &P1, newdirfd: RawFd, newpath: &P2) -> Result<()> {
+    let res = try!(try!(oldpath.with_nix_path(|old|
+        newpath.with_nix_path(|new|
+            unsafe { 
+                libc::renameat(olddirfd, old.as_ptr() as *const c_char,
+                               newdirfd, new.as_ptr() as *const c_char)
+            }
+        )
+    )));
+
+    Errno::result(res).map(drop)
+}
+
 pub enum FcntlArg<'a> {
     F_DUPFD(RawFd),
     F_DUPFD_CLOEXEC(RawFd),
