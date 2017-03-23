@@ -25,6 +25,8 @@ libc_bitflags!{
     pub flags AtFlags: c_int {
         AT_SYMLINK_NOFOLLOW,
         #[cfg(any(target_os = "linux", target_os = "android"))]
+        AT_REMOVEDIR,
+        #[cfg(any(target_os = "linux", target_os = "android"))]
         AT_NO_AUTOMOUNT,
         #[cfg(any(target_os = "linux", target_os = "android"))]
         AT_EMPTY_PATH

@@ -4,6 +4,7 @@ use nix::unistd::*;
 use nix::unistd::ForkResult::*;
 use nix::sys::wait::*;
 use nix::sys::stat;
+use nix::fcntl;
 use std::iter;
 use std::ffi::CString;
 use std::fs::File;
@@ -194,6 +195,21 @@ fn test_lseek() {
     assert_eq!(b"f123456", buf.as_bytes());
 
     close(tmp.as_raw_fd()).unwrap();
+}
+
+#[test]
+fn test_unlinkat() {
+    let tempdir = TempDir::new("nix-test_unlinkat").unwrap();
+    let dirfd = fcntl::open(tempdir.path(),
+                            fcntl::OFlag::empty(),
+                            stat::Mode::empty());
+    let file = tempdir.path().join("foo");
+    File::create(&file).unwrap();
+
+    unlinkat(dirfd.unwrap(),
+            &file.file_name(),
+            fcntl::AtFlags::empty()).unwrap();
+    assert!(!file.exists());
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]

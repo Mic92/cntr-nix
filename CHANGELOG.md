@@ -6,7 +6,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased]
 
 <!--### Added-->
-- Added `nix::unistd::{openat, fstatat, readlink, readlinkat, rename, renameat, mknodat}`
+- Added `nix::unistd::{openat, fstatat, readlink, readlinkat, rename, renameat, mknodat, unlinkat}`
   ([#497](https://github.com/nix-rust/nix/pull/551))
 
 ### Changed
