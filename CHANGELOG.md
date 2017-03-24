@@ -162,6 +162,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   ([#754](https://github.com/nix-rust/nix/pull/754))
 - Added `nix::unistd::{link, linkat}`
   ([#755](https://github.com/nix-rust/nix/pull/755))
+- Added nix::unistd::{symlink,symlinkat}.
+  ([#757](https://github.com/nix-rust/nix/pull/757))
 
 ### Changed
 - Exposed the `mqueue` module for all supported operating systems.
