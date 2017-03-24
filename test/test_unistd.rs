@@ -243,6 +243,35 @@ fn test_lseek64() {
     close(tmp.as_raw_fd()).unwrap();
 }
 
+#[test]
+fn test_linkat() {
+    let tempdir = TempDir::new("nix-test_linkat").unwrap();
+    let src = tempdir.path().join("foo");
+    let dst = tempdir.path().join("bar");
+    File::create(&src).unwrap();
+
+    let dirfd = fcntl::open(tempdir.path(),
+                            fcntl::OFlag::empty(),
+                            stat::Mode::empty());
+    linkat(dirfd.unwrap(),
+           &src.file_name(),
+           dirfd.unwrap(),
+           &dst.file_name(),
+           fcntl::AtFlags::empty()).unwrap();
+    assert!(dst.exists());
+}
+
+#[test]
+fn test_link() {
+    let tempdir = TempDir::new("nix-test_link").unwrap();
+    let src = tempdir.path().join("foo");
+    let dst = tempdir.path().join("bar");
+    File::create(&src).unwrap();
+
+    link(&src, &dst).unwrap();
+    assert!(dst.exists());
+}
+
 execve_test_factory!(test_execve, execve, b"/bin/sh", b"/system/bin/sh");
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
