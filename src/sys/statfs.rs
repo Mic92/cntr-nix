@@ -1,5 +1,6 @@
 use {Errno, Result, NixPath};
 use std::os::unix::io::AsRawFd;
+use libc;
 
 pub mod vfs {
     #[cfg(target_pointer_width = "32")]
@@ -23,22 +24,6 @@ pub mod vfs {
     }
 
     use sys::statfs::vfs::hwdep::*;
-
-    #[repr(C)]
-    #[derive(Debug,Copy,Clone)]
-    pub struct Statfs {
-        pub f_type:  FsType,
-        pub f_bsize: BlockSize,
-        pub f_blocks: u64,
-        pub f_bfree: u64,
-        pub f_bavail: u64,
-        pub f_files: u64,
-        pub f_ffree: u64,
-        pub f_fsid: u64,
-        pub f_namelen: NameLen,
-        pub f_frsize: FragmentSize,
-        pub f_spare: [SwordType; 5],
-    }
 
     pub const ADFS_SUPER_MAGIC : FsType =      0xadf5;
     pub const AFFS_SUPER_MAGIC : FsType =      0xADFF;
@@ -87,30 +72,20 @@ pub mod vfs {
     pub const _XIAFS_SUPER_MAGIC : FsType =    0x012FD16D;
 }
 
-mod ffi {
-    use libc::{c_int,c_char};
-    use sys::statfs::vfs;
-
-    extern {
-        pub fn statfs(path: * const c_char, buf: *mut vfs::Statfs) -> c_int;
-        pub fn fstatfs(fd: c_int, buf: *mut vfs::Statfs) -> c_int;
-    }
-}
-
-pub fn statfs<P: ?Sized + NixPath>(path: &P, stat: &mut vfs::Statfs) -> Result<()> {
+pub fn statfs<P: ?Sized + NixPath>(path: &P, stat: &mut libc::statfs) -> Result<()> {
     unsafe {
         Errno::clear();
         let res = try!(
-            path.with_nix_path(|path| ffi::statfs(path.as_ptr(), stat))
+            path.with_nix_path(|path| libc::statfs(path.as_ptr(), stat))
         );
 
         Errno::result(res).map(drop)
     }
 }
 
-pub fn fstatfs<T: AsRawFd>(fd: &T, stat: &mut vfs::Statfs) -> Result<()> {
+pub fn fstatfs<T: AsRawFd>(fd: &T, stat: &mut libc::statfs) -> Result<()> {
     unsafe {
         Errno::clear();
-        Errno::result(ffi::fstatfs(fd.as_raw_fd(), stat)).map(drop)
+        Errno::result(libc::fstatfs(fd.as_raw_fd(), stat)).map(drop)
     }
 }
