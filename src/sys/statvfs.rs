@@ -2,8 +2,7 @@
 //!
 //! See the `vfs::Statvfs` struct for some rusty wrappers
 
-use {Errno, Result, NixPath};
-use std::os::unix::io::AsRawFd;
+pub use self::vfs::{statvfs, fstatvfs};
 
 pub mod vfs {
     //! Structs related to the `statvfs` and `fstatvfs` functions
@@ -11,77 +10,29 @@ pub mod vfs {
     //! The `Statvfs` struct has some wrappers methods around the `statvfs` and
     //! `fstatvfs` calls.
 
-    use libc::{c_ulong,c_int};
+    use {Errno, Result, NixPath};
+
+    use libc;
     use std::os::unix::io::AsRawFd;
-    use {Result, NixPath};
+    use std::mem;
 
-    use super::{statvfs, fstatvfs};
+    pub struct Statvfs(libc::statvfs);
 
-    bitflags!(
-        /// Mount Flags
-        #[repr(C)]
-        #[derive(Default)]
-        pub flags FsFlags: c_ulong {
-            /// Read Only
-            const RDONLY = 1,
-            /// Do not allow the set-uid bits to have an effect
-            const NOSUID = 2,
-            /// Do not interpret character or block-special devices
-            const NODEV  = 4,
-            /// Do not allow execution of binaries on the filesystem
-            const NOEXEC = 8,
-            /// All IO should be done synchronously
-            const SYNCHRONOUS  = 16,
-            /// Allow mandatory locks on the filesystem
-            const MANDLOCK = 64,
-            const WRITE = 128,
-            const APPEND = 256,
-            const IMMUTABLE = 512,
-            /// Do not update access times on files
-            const NOATIME = 1024,
-            /// Do not update access times on files
-            const NODIRATIME = 2048,
-            /// Update access time relative to modify/change time
-            const RELATIME = 4096,
+    impl Default for Statvfs {
+        /// Create a statvfs object initialized to all zeros
+        fn default() -> Self {
+            unsafe { Statvfs(mem::zeroed()) }
         }
-    );
-
-    /// The posix statvfs struct
-    ///
-    /// http://linux.die.net/man/2/statvfs
-    #[repr(C)]
-    #[derive(Debug,Copy,Clone)]
-    pub struct Statvfs {
-        /// Filesystem block size. This is the value that will lead to
-        /// most efficient use of the filesystem
-        pub f_bsize: c_ulong,
-        /// Fragment Size -- actual minimum unit of allocation on this
-        /// filesystem
-        pub f_frsize: c_ulong,
-        /// Total number of blocks on the filesystem
-        pub f_blocks: u64,
-        /// Number of unused blocks on the filesystem, including those
-        /// reserved for root
-        pub f_bfree: u64,
-        /// Number of blocks available to non-root users
-        pub f_bavail: u64,
-        /// Total number of inodes available on the filesystem
-        pub f_files: u64,
-        /// Number of inodes available on the filesystem
-        pub f_ffree: u64,
-        /// Number of inodes available to non-root users
-        pub f_favail: u64,
-        /// File System ID
-        pub f_fsid: c_ulong,
-        /// Mount Flags
-        pub f_flag: FsFlags,
-        /// Maximum filename length
-        pub f_namemax: c_ulong,
-        /// Reserved extra space, OS-dependent
-        f_spare: [c_int; 6],
     }
 
     impl Statvfs {
+        /// The posix statvfs struct
+        ///
+        /// http://linux.die.net/man/2/statvfs
+        fn fields(&self) -> &libc::statvfs {
+            &self.0
+        }
+
         /// Create a new `Statvfs` object and fill it with information about
         /// the mount that contains `path`
         pub fn for_path<P: ?Sized + NixPath>(path: &P) -> Result<Statvfs> {
@@ -108,54 +59,20 @@ pub mod vfs {
         }
     }
 
-    impl Default for Statvfs {
-        /// Create a statvfs object initialized to all zeros
-        fn default() -> Self {
-            Statvfs {
-                f_bsize: 0,
-                f_frsize: 0,
-                f_blocks: 0,
-                f_bfree: 0,
-                f_bavail: 0,
-                f_files: 0,
-                f_ffree: 0,
-                f_favail: 0,
-                f_fsid: 0,
-                f_flag: FsFlags::default(),
-                f_namemax: 0,
-                f_spare: [0, 0, 0, 0, 0, 0],
-            }
-        }
-    }
-}
-
-mod ffi {
-    use libc::{c_char, c_int};
-    use sys::statvfs::vfs;
-
-    extern {
-        pub fn statvfs(path: * const c_char, buf: *mut vfs::Statvfs) -> c_int;
-        pub fn fstatvfs(fd: c_int, buf: *mut vfs::Statvfs) -> c_int;
-    }
-}
-
-/// Fill an existing `Statvfs` object with information about the `path`
-pub fn statvfs<P: ?Sized + NixPath>(path: &P, stat: &mut vfs::Statvfs) -> Result<()> {
-    unsafe {
-        Errno::clear();
-        let res = try!(
-            path.with_nix_path(|path| ffi::statvfs(path.as_ptr(), stat))
-        );
+    /// Fill an existing `Statvfs` object with information about the `path`
+    pub fn statvfs<P: ?Sized + NixPath>(path: &P, stat: &mut Statvfs) -> Result<()> {
+        let res = try!(path.with_nix_path(|path| unsafe {
+            libc::statvfs(path.as_ptr(), &mut stat.0 as *mut libc::statvfs)
+        }));
 
         Errno::result(res).map(drop)
     }
-}
 
-/// Fill an existing `Statvfs` object with information about `fd`
-pub fn fstatvfs<T: AsRawFd>(fd: &T, stat: &mut vfs::Statvfs) -> Result<()> {
-    unsafe {
-        Errno::clear();
-        Errno::result(ffi::fstatvfs(fd.as_raw_fd(), stat)).map(drop)
+    /// Fill an existing `Statvfs` object with information about `fd`
+    pub fn fstatvfs<T: AsRawFd>(fd: &T, stat: &mut Statvfs) -> Result<()> {
+        unsafe {
+            Errno::result(libc::fstatvfs(fd.as_raw_fd(), &mut stat.0 as *mut libc::statvfs)).map(drop)
+        }
     }
 }
 
