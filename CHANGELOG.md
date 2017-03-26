@@ -65,6 +65,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   ([#755](https://github.com/nix-rust/nix/pull/755))
 - Added nix::unistd::{symlink,symlinkat}.
   ([#757](https://github.com/nix-rust/nix/pull/757))
+- Added `nix::unistd::{access|faccessat}`
+  ([#758](https://github.com/nix-rust/nix/pull/758))
 
 ### Changed
 - Use native `pipe2` on all BSD targets.  Users should notice no difference.

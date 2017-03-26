@@ -206,6 +206,24 @@ fn test_mkdirat() {
     assert!(path.exists());
 }
 
+#[test]
+fn test_access() {
+    let tempdir = TempDir::new("nix-test_mkdirat").unwrap();
+
+    let dirfd = fcntl::open(tempdir.path().parent().unwrap(),
+                            fcntl::OFlag::empty(),
+                            stat::Mode::empty());
+
+    // if succeed, permissions are or ok
+    access(tempdir.path(), R_OK | X_OK | W_OK).unwrap();
+
+    faccessat(dirfd.unwrap(),
+              &tempdir.path().file_name(),
+              R_OK | X_OK | W_OK,
+              fcntl::AtFlags::empty()).unwrap();
+
+}
+
 macro_rules! execve_test_factory(
     ($test_name:ident, $syscall:ident, $exe: expr $(, $pathname:expr, $flags:expr)*) => (
     #[test]
