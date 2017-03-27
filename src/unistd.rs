@@ -44,6 +44,15 @@ impl ForkResult {
     }
 }
 
+libc_bitflags!{
+    pub flags AccessMode: c_int {
+        R_OK,
+        W_OK,
+        X_OK,
+        F_OK
+    }
+}
+
 /// Create a new child process duplicating the parent process ([see
 /// fork(2)](http://man7.org/linux/man-pages/man2/fork.2.html)).
 ///
@@ -771,6 +780,20 @@ pub fn unlinkat<P: ?Sized + NixPath>(fd: RawFd, pathname: &P, flags: AtFlags) ->
         unsafe {
             libc::unlinkat(fd, cstr.as_ptr(), flags.bits())
         }
+    }));
+    Errno::result(res).map(drop)
+}
+
+pub fn access<P: ?Sized + NixPath>(pathname: &P, mode: AccessMode) -> Result<()> {
+    let res = try!(pathname.with_nix_path(|cstr| {
+        unsafe { libc::access(cstr.as_ptr(), mode.bits()) }
+    }));
+    Errno::result(res).map(drop)
+}
+
+pub fn faccessat<P: ?Sized + NixPath>(dirfd: RawFd, pathname: &P, mode: AccessMode, flags: AtFlags) -> Result<()> {
+    let res = try!(pathname.with_nix_path(|cstr| {
+        unsafe { libc::faccessat(dirfd, cstr.as_ptr(), mode.bits(), flags.bits()) }
     }));
     Errno::result(res).map(drop)
 }

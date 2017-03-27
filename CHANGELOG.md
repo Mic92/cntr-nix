@@ -6,8 +6,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased]
 
 <!--### Added-->
-- Added `nix::unistd::{openat, fstatat, readlink, readlinkat, rename, renameat, mknodat, unlinkat, mkdirat, link, linkat, symlink, symlinkat}`
-  ([#497](https://github.com/nix-rust/nix/pull/551))
+- Added `nix::unistd::{openat, fstatat, readlink, readlinkat, rename, renameat, mknodat, unlinkat, mkdirat, link, linkat, symlink, symlinkat, access, faccessat}`
+  ([#552](https://github.com/nix-rust/nix/pull/552), [#561](https://github.com/nix-rust/nix/pull/561))
 
 ### Changed
 - Marked `sys::mman::{ mmap, munmap, madvise, munlock, msync }` as unsafe.
