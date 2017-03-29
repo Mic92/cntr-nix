@@ -69,6 +69,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   ([#758](https://github.com/nix-rust/nix/pull/758))
 - Added `nix::sys::{chmod, fchmod, fchmodat}`
   ([#759](https://github.com/nix-rust/nix/pull/759))
+- Added `nix::unistd::{chown, lchown, fchown, fchownat}`
+  ([#760](https://github.com/nix-rust/nix/pull/760))
 
 ### Changed
 - Use native `pipe2` on all BSD targets.  Users should notice no difference.
