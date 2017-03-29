@@ -166,6 +166,10 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   ([#757](https://github.com/nix-rust/nix/pull/757))
 - Added `nix::unistd::{access|faccessat}`
   ([#758](https://github.com/nix-rust/nix/pull/758))
+- Added `nix::sys::chmod`
+  ([#759](https://github.com/nix-rust/nix/pull/759))
+- Added `nix::unistd::{chown, lchown, fchown, fchownat}`
+  ([#760](https://github.com/nix-rust/nix/pull/760))
 
 ### Changed
 - Exposed the `mqueue` module for all supported operating systems.
