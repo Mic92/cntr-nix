@@ -127,3 +127,29 @@ pub fn fstatat<P: ?Sized + NixPath>(dirfd: RawFd, pathname: &P, flags: AtFlags) 
     Errno::result(res).map(|_| dst)
 }
 
+pub fn chmod<P: ?Sized + NixPath>(pathname: &P, mode: Mode) -> Result<()> {
+    let res = try!(pathname.with_nix_path(|cstr| {
+        unsafe { libc::chmod(cstr.as_ptr(), mode.bits()) }
+    }));
+
+    Errno::result(res).map(drop)
+}
+
+pub fn fchmod(fd: RawFd, mode: Mode) -> Result<()> {
+    let res = unsafe { libc::fchmod(fd, mode.bits()) };
+
+    Errno::result(res).map(drop)
+}
+
+pub fn fchmodat<P: ?Sized + NixPath>(dirfd: RawFd, pathname: &P, mode: Mode, flags: AtFlags) -> Result<()> {
+    let res = try!(pathname.with_nix_path(|cstr| {
+        unsafe {
+            libc::fchmodat(dirfd,
+                           cstr.as_ptr(),
+                           mode.bits(),
+                           flags.bits())
+        }
+    }));
+
+    Errno::result(res).map(drop)
+}
