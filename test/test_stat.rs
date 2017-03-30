@@ -181,3 +181,22 @@ fn test_mknod_mknodat() {
     mknodat(&0, &mknodat_fifo, SFlag::S_IFIFO, Mode::S_IRUSR, 0).unwrap();
     assert_fifo(&mknodat_fifo);
 }
+
+#[test]
+#[cfg(target_os = "linux")]
+fn test_utime() {
+    use std::time::UNIX_EPOCH;
+    use nix::sys::time::{TimeSpec, TimeValLike};
+    use nix::sys::stat::{utimensat, UtimeSpec};
+    use tempfile::NamedTempFile;
+
+    let tempfile = NamedTempFile::new().unwrap();
+    utimensat(0, // is ignored, if pathname is absolute path
+              tempfile.path(),
+              &UtimeSpec::Time(TimeSpec::zero()),
+              &UtimeSpec::Time(TimeSpec::zero()),
+              fcntl::AtFlags::empty()).unwrap();
+    let mtime = tempfile.metadata().unwrap().modified().unwrap();
+
+    assert_eq!(mtime, UNIX_EPOCH);
+}
