@@ -7,6 +7,8 @@ use libc::{self, mode_t};
 use std::mem;
 use std::os::unix::io::RawFd;
 
+pub use self::linux::*;
+
 libc_bitflags!(
     pub flags SFlag: mode_t {
         S_IFIFO,
@@ -153,3 +155,63 @@ pub fn fchmodat<P: ?Sized + NixPath>(dirfd: RawFd, pathname: &P, mode: Mode, fla
 
     Errno::result(res).map(drop)
 }
+
+#[cfg(target_os = "linux")]
+mod linux {
+    use {Errno, Result, NixPath};
+    use std::os::unix::io::RawFd;
+    use libc;
+    use fcntl::AtFlags;
+    use sys::time::TimeSpec;
+
+    pub enum UtimeSpec {
+        Now,
+        Omit,
+        Time(TimeSpec)
+    }
+
+    fn to_timespec(time: &UtimeSpec) -> libc::timespec {
+        match time {
+            &UtimeSpec::Now => libc::timespec {
+                tv_sec: 0,
+                tv_nsec: libc::UTIME_NOW,
+            },
+            &UtimeSpec::Omit => libc::timespec {
+                tv_sec: 0,
+                tv_nsec: libc::UTIME_OMIT,
+            },
+            &UtimeSpec::Time(spec) => *spec.as_ref()
+        }
+    }
+
+    pub fn utimensat<P: ?Sized + NixPath>(dirfd: RawFd,
+                                          pathname: &P,
+                                          atime: &UtimeSpec,
+                                          mtime: &UtimeSpec,
+                                          flags: AtFlags) -> Result<()> {
+        let time = [to_timespec(atime), to_timespec(mtime)];
+        let res = try!(pathname.with_nix_path(|cstr| {
+            unsafe {
+                libc::utimensat(dirfd,
+                                cstr.as_ptr(),
+                                time.as_ptr() as *const libc::timespec,
+                                flags.bits())
+            }
+        }));
+
+        Errno::result(res).map(drop)
+    }
+
+    pub fn futimens(fd: RawFd,
+                    atime: &UtimeSpec,
+                    mtime: &UtimeSpec) -> Result<()> {
+        let time = [to_timespec(atime), to_timespec(mtime)];
+        let res = unsafe {
+            libc::futimens(fd, time.as_ptr() as *const libc::timespec)
+        };
+    
+        Errno::result(res).map(drop)
+    }
+}
+#[cfg(not(target_os = "linux"))]
+mod linux { }
