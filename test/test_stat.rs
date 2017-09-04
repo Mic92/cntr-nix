@@ -1,11 +1,12 @@
 use std::fs::File;
 use std::os::unix::fs::symlink;
 use std::os::unix::prelude::AsRawFd;
+use std::path::Path;
 
 use libc::{S_IFMT, S_IFLNK};
 
 use nix::fcntl;
-use nix::sys::stat::{self, fchmod, fchmodat, fstat, lstat, stat};
+use nix::sys::stat::{self, fchmod, fchmodat, fstat, lstat, stat, mknod};
 use nix::sys::stat::{FileStat, Mode, FchmodatFlags};
 use nix::unistd::chdir;
 use nix::Result;
@@ -151,4 +152,32 @@ fn test_fchmodat() {
 
     let file_stat2 = stat(&fullpath).unwrap();
     assert_eq!(file_stat2.st_mode & 0o7777, mode2.bits());
+}
+
+fn assert_fifo(path: &Path) {
+    use nix::sys::stat::SFlag;
+    let stats = stat(path).unwrap();
+    let typ = SFlag::from_bits_truncate(stats.st_mode);
+    assert!(typ == SFlag::S_IFIFO);
+}
+
+#[test]
+fn test_mknod() {
+    use nix::sys::stat::SFlag;
+    let tempdir = TempDir::new("nix-test_mknodat").unwrap();
+    let mknod_fifo = tempdir.path().join("mknod");
+
+    mknod(&mknod_fifo, SFlag::S_IFIFO, Mode::S_IRUSR, 0).unwrap();
+    assert_fifo(&mknod_fifo);
+}
+
+#[test]
+#[cfg(not(any(target_os = "ios", target_os = "macos")))]
+fn test_mknod_mknodat() {
+    use nix::sys::stat::{mknodat, SFlag};
+    let tempdir = TempDir::new("nix-test_mknodat").unwrap();
+    let mknodat_fifo = tempdir.path().join("mknodat");
+
+    mknodat(&0, &mknodat_fifo, SFlag::S_IFIFO, Mode::S_IRUSR, 0).unwrap();
+    assert_fifo(&mknodat_fifo);
 }

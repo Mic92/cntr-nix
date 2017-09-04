@@ -151,6 +151,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   ([#835](https://github.com/nix-rust/nix/pull/835))
 - Added `nix::dirent::{opendir, fdopendir, readdir, telldir, seekdir}`
   ([#558](https://github.com/nix-rust/nix/pull/558))
+- Added nix::sys::stat::mknod
+  ([#747](https://github.com/nix-rust/nix/pull/747))
 
 ### Changed
 - Exposed the `mqueue` module for all supported operating systems.
