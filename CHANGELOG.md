@@ -52,6 +52,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   ([#814](https://github.com/nix-rust/nix/pull/814))
 - Added `nix::dirent::{opendir, fdopendir, readdir, telldir, seekdir}`
   ([#558](https://github.com/nix-rust/nix/pull/558))
+- Added nix::sys::stat::mknod
+  ([#747](https://github.com/nix-rust/nix/pull/747))
 
 ### Changed
 - Use native `pipe2` on all BSD targets.  Users should notice no difference.
