@@ -26,6 +26,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   ([#749](https://github.com/nix-rust/nix/pull/749))
 - Added `nix::unistd::{access|faccessat}`
   ([#758](https://github.com/nix-rust/nix/pull/758))
+- Added `nix::sys::{chmod, fchmod, fchmodat}`
+  ([#759](https://github.com/nix-rust/nix/pull/759))
 
 ### Changed
 - Renamed existing `ptrace` wrappers to encourage namespacing ([#692](https://github.com/nix-rust/nix/pull/692))
