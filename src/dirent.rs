@@ -133,3 +133,8 @@ pub fn seekdir<'a>(dir: &'a mut DirectoryStream, loc: c_long) {
 pub fn telldir<'a>(dir: &'a mut DirectoryStream) -> c_long {
     unsafe { libc::telldir(dir.0) }
 }
+
+pub fn dirfd<'a>(dir: &'a mut DirectoryStream) -> Result<RawFd> {
+    let res = unsafe { libc::dirfd(dir.0) };
+    Errno::result(res)
+}
