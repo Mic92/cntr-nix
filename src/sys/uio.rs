@@ -7,6 +7,12 @@ use libc::{self, c_int, c_void, size_t, off_t};
 use std::marker::PhantomData;
 use std::os::unix::io::RawFd;
 
+#[cfg(target_os = "linux")]
+use libc::{pread64, pwrite64, off64_t};
+#[cfg(not(target_os = "linux"))]
+use libc::{pread as pread64, pwrite as pwrite64, off_t as off64_t};
+
+
 pub fn writev(fd: RawFd, iov: &[IoVec<&[u8]>]) -> Result<usize> {
     let res = unsafe { libc::writev(fd, iov.as_ptr() as *const libc::iovec, iov.len() as c_int) };
 
@@ -60,19 +66,19 @@ pub fn preadv(fd: RawFd, iov: &[IoVec<&mut [u8]>],
     Errno::result(res).map(|r| r as usize)
 }
 
-pub fn pwrite(fd: RawFd, buf: &[u8], offset: off_t) -> Result<usize> {
+pub fn pwrite(fd: RawFd, buf: &[u8], offset: off64_t) -> Result<usize> {
     let res = unsafe {
-        libc::pwrite(fd, buf.as_ptr() as *const c_void, buf.len() as size_t,
-                    offset)
+        pwrite64(fd, buf.as_ptr() as *const c_void, buf.len() as size_t,
+                 offset)
     };
 
     Errno::result(res).map(|r| r as usize)
 }
 
-pub fn pread(fd: RawFd, buf: &mut [u8], offset: off_t) -> Result<usize>{
+pub fn pread(fd: RawFd, buf: &mut [u8], offset: off64_t) -> Result<usize>{
     let res = unsafe {
-        libc::pread(fd, buf.as_mut_ptr() as *mut c_void, buf.len() as size_t,
-                   offset)
+        pread64(fd, buf.as_mut_ptr() as *mut c_void, buf.len() as size_t,
+                offset)
     };
 
     Errno::result(res).map(|r| r as usize)

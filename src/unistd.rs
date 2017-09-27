@@ -4,7 +4,7 @@ use errno::{self, Errno};
 use {Error, Result, NixPath};
 use fcntl::{AtFlags, fcntl, FdFlag, OFlag};
 use fcntl::FcntlArg::F_SETFD;
-use libc::{self, c_char, c_void, c_int, c_long, c_uint, size_t, pid_t, off_t,
+use libc::{self, c_char, c_void, c_int, c_long, c_uint, size_t, pid_t,
            uid_t, gid_t, mode_t};
 use std::{fmt, mem, ptr};
 use std::ffi::{CString, CStr, OsString, OsStr};
@@ -13,6 +13,12 @@ use std::os::unix::io::RawFd;
 use std::path::PathBuf;
 use void::Void;
 use sys::stat::Mode;
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+use libc::{ftruncate64, off64_t};
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+use libc::{ftruncate as ftruncate64, off_t as off64_t};
+
 
 #[cfg(any(target_os = "android", target_os = "linux"))]
 pub use self::pivot_root::*;
@@ -1113,8 +1119,8 @@ fn pipe2_setflags(fd1: RawFd, fd2: RawFd, flags: OFlag) -> Result<()> {
 ///
 /// See also
 /// [ftruncate(2)](http://pubs.opengroup.org/onlinepubs/9699919799/functions/ftruncate.html)
-pub fn ftruncate(fd: RawFd, len: off_t) -> Result<()> {
-    Errno::result(unsafe { libc::ftruncate(fd, len) }).map(drop)
+pub fn ftruncate(fd: RawFd, len: off64_t) -> Result<()> {
+    Errno::result(unsafe { ftruncate64(fd, len) }).map(drop)
 }
 
 pub fn isatty(fd: RawFd) -> Result<bool> {
