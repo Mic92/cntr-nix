@@ -9,6 +9,11 @@ use std::os::unix::ffi::OsStrExt;
 #[cfg(any(target_os = "android", target_os = "linux"))]
 use sys::uio::IoVec;  // For vmsplice
 
+#[cfg(target_os = "linux")]
+use libc::{open64, openat64};
+#[cfg(not(target_os = "linux"))]
+use libc::{open as open64, openat as openat64};
+
 libc_bitflags!{
     pub struct AtFlags: c_int {
         AT_SYMLINK_NOFOLLOW;
@@ -142,7 +147,7 @@ libc_bitflags!(
 
 pub fn open<P: ?Sized + NixPath>(path: &P, oflag: OFlag, mode: Mode) -> Result<RawFd> {
     let fd = try!(path.with_nix_path(|cstr| {
-        unsafe { libc::open(cstr.as_ptr(), oflag.bits(), mode.bits() as c_uint) }
+        unsafe { open64(cstr.as_ptr(), oflag.bits(), mode.bits() as c_uint) }
     }));
 
     Errno::result(fd)
@@ -150,7 +155,7 @@ pub fn open<P: ?Sized + NixPath>(path: &P, oflag: OFlag, mode: Mode) -> Result<R
 
 pub fn openat<P: ?Sized + NixPath>(dirfd: RawFd, path: &P, oflag: OFlag, mode: Mode) -> Result<RawFd> {
     let fd = try!(path.with_nix_path(|cstr| {
-        unsafe { libc::openat(dirfd, cstr.as_ptr(), oflag.bits(), mode.bits() as c_uint) }
+        unsafe { openat64(dirfd, cstr.as_ptr(), oflag.bits(), mode.bits() as c_uint) }
     }));
     Errno::result(fd)
 }

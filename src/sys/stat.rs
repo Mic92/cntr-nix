@@ -1,5 +1,9 @@
 pub use libc::dev_t;
-pub use libc::stat as FileStat;
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub use libc::{stat64 as FileStat};
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub use libc::{stat as FileStat};
 
 use {Result, NixPath};
 use errno::Errno;
@@ -7,6 +11,11 @@ use fcntl::AtFlags;
 use libc::{self, mode_t};
 use std::mem;
 use std::os::unix::io::RawFd;
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+use libc::{fstat64, fstatat64, stat64, lstat64};
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+use libc::{fstat as fstat64, fstatat as fstatat64, stat as stat64, lstat as lstat64};
 
 pub use self::linux::*;
 
@@ -95,7 +104,7 @@ pub fn stat<P: ?Sized + NixPath>(path: &P) -> Result<FileStat> {
     let mut dst = unsafe { mem::uninitialized() };
     let res = try!(path.with_nix_path(|cstr| {
         unsafe {
-            libc::stat(cstr.as_ptr(), &mut dst as *mut FileStat)
+            stat64(cstr.as_ptr(), &mut dst as *mut FileStat)
         }
     }));
 
@@ -108,7 +117,7 @@ pub fn lstat<P: ?Sized + NixPath>(path: &P) -> Result<FileStat> {
     let mut dst = unsafe { mem::uninitialized() };
     let res = try!(path.with_nix_path(|cstr| {
         unsafe {
-            libc::lstat(cstr.as_ptr(), &mut dst as *mut FileStat)
+            lstat64(cstr.as_ptr(), &mut dst as *mut FileStat)
         }
     }));
 
@@ -119,7 +128,7 @@ pub fn lstat<P: ?Sized + NixPath>(path: &P) -> Result<FileStat> {
 
 pub fn fstat(fd: RawFd) -> Result<FileStat> {
     let mut dst = unsafe { mem::uninitialized() };
-    let res = unsafe { libc::fstat(fd, &mut dst as *mut FileStat) };
+    let res = unsafe { fstat64(fd, &mut dst as *mut FileStat) };
 
     try!(Errno::result(res));
 
@@ -129,7 +138,7 @@ pub fn fstat(fd: RawFd) -> Result<FileStat> {
 pub fn fstatat<P: ?Sized + NixPath>(dirfd: RawFd, pathname: &P, f: AtFlags) -> Result<FileStat> {
     let mut dst = unsafe { mem::uninitialized() };
     let res = try!(pathname.with_nix_path(|cstr| {
-        unsafe { libc::fstatat(dirfd, cstr.as_ptr(), &mut dst as *mut FileStat, f.bits() as libc::c_int) }
+        unsafe { fstatat64(dirfd, cstr.as_ptr(), &mut dst as *mut FileStat, f.bits() as libc::c_int) }
     }));
 
     try!(Errno::result(res));
