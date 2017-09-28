@@ -42,6 +42,9 @@ pub mod stat;
 #[cfg(any(target_os = "linux"))]
 pub mod reboot;
 
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub mod resource;
+
 pub mod termios;
 
 pub mod utsname;
