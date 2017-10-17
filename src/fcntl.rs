@@ -145,6 +145,16 @@ libc_bitflags!(
     }
 );
 
+#[cfg(any(target_os = "android", target_os = "linux"))]
+libc_bitflags!(
+    /// Configuration options for opened files.
+    pub struct RenameAt2Flags: c_int {
+        RENAME_NOREPLACE;
+        RENAME_EXCHANGE;
+        RENAME_WHITEOUT;
+    }
+);
+
 pub fn open<P: ?Sized + NixPath>(path: &P, oflag: OFlag, mode: Mode) -> Result<RawFd> {
     let fd = try!(path.with_nix_path(|cstr| {
         unsafe { open64(cstr.as_ptr(), oflag.bits(), mode.bits() as c_uint) }
@@ -236,6 +246,22 @@ pub fn renameat<P1: ?Sized + NixPath, P2: ?Sized + NixPath>(olddirfd: RawFd, old
             unsafe { 
                 libc::renameat(olddirfd, old.as_ptr() as *const c_char,
                                newdirfd, new.as_ptr() as *const c_char)
+            }
+        )
+    )));
+
+    Errno::result(res).map(drop)
+}
+
+#[cfg(any(target_os = "android", target_os = "linux"))]
+pub fn renameat2<P1: ?Sized + NixPath, P2: ?Sized + NixPath>(olddirfd: RawFd, oldpath: &P1, newdirfd: RawFd, newpath: &P2, flags: RenameAt2Flags) -> Result<()> {
+    let res = try!(try!(oldpath.with_nix_path(|old|
+        newpath.with_nix_path(|new|
+            unsafe {
+                libc::syscall(libc::SYS_renameat2,
+                              olddirfd, old.as_ptr(),
+                              newdirfd, new.as_ptr(),
+                              flags.bits())
             }
         )
     )));
