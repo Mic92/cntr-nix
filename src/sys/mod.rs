@@ -76,6 +76,9 @@ pub mod statvfs;
 #[cfg(any(target_os = "android", target_os = "linux"))]
 pub mod sysinfo;
 
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub mod prctl;
+
 pub mod termios;
 
 pub mod time;
