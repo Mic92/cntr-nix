@@ -215,11 +215,11 @@ fn test_access() {
                             stat::Mode::empty());
 
     // if succeed, permissions are or ok
-    access(tempdir.path(), R_OK | X_OK | W_OK).unwrap();
+    access(tempdir.path(), AccessMode::R_OK | AccessMode::X_OK | AccessMode::W_OK).unwrap();
 
     faccessat(dirfd.unwrap(),
               &tempdir.path().file_name(),
-              R_OK | X_OK | W_OK,
+              AccessMode::R_OK | AccessMode::X_OK | AccessMode::W_OK,
               fcntl::AtFlags::empty()).unwrap();
 
 }

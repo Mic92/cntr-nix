@@ -114,7 +114,7 @@ fn test_stat_fstat_lstat() {
 fn assert_fifo(path: &Path) {
     let stats = stat(path).unwrap();
     let typ = SFlag::from_bits_truncate(stats.st_mode);
-    assert!(typ == S_IFIFO);
+    assert!(typ == SFlag::S_IFIFO);
 }
 
 #[test]
@@ -122,7 +122,7 @@ fn test_mknod() {
     let tempdir = TempDir::new("nix-test_mknodat").unwrap();
     let mknod_fifo = tempdir.path().join("mknod");
 
-    mknod(&mknod_fifo, S_IFIFO, S_IRUSR, 0).unwrap();
+    mknod(&mknod_fifo, SFlag::S_IFIFO, Mode::S_IRUSR, 0).unwrap();
     assert_fifo(&mknod_fifo);
 }
 
@@ -132,7 +132,7 @@ fn test_mknod_mknodat() {
     let tempdir = TempDir::new("nix-test_mknodat").unwrap();
     let mknodat_fifo = tempdir.path().join("mknodat");
 
-    mknodat(&0, &mknodat_fifo, S_IFIFO, S_IRUSR, 0).unwrap();
+    mknodat(&0, &mknodat_fifo, SFlag::S_IFIFO, Mode::S_IRUSR, 0).unwrap();
     assert_fifo(&mknodat_fifo);
 }
 
