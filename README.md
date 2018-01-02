@@ -1,4 +1,4 @@
-# Rust bindings to *nix APIs
+# Rust bindings to *nix APIs (fork with features used in cntr)
 
 [![Build Status](https://travis-ci.org/nix-rust/nix.svg?branch=master)](https://travis-ci.org/nix-rust/nix)
 [![crates.io](http://meritbadge.herokuapp.com/nix)](https://crates.io/crates/nix)
