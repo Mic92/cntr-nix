@@ -2,7 +2,7 @@
 //!
 //! Modules are structured according to the C header file that they would be
 //! defined in.
-#![crate_name = "nix"]
+#![crate_name = "cntr_nix"]
 #![cfg(unix)]
 #![allow(non_camel_case_types)]
 // latest bitflags triggers a rustc bug with cross-crate macro expansions causing dead_code

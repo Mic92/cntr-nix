@@ -1,9 +1,9 @@
 [package]
-name        = "nix"
-description = "Rust friendly bindings to *nix APIs"
+name        = "cntr-nix"
+description = "Rust friendly bindings to *nix APIs (fork with features used in cntr)"
 version     = "0.10.0-pre"
-authors     = ["The nix-rust Project Developers"]
-repository  = "https://github.com/nix-rust/nix"
+authors     = ["Mic92"]
+repository  = "https://github.com/Mic92/cntr-nix"
 license     = "MIT"
 categories  = ["os::unix-apis"]
 exclude     = [
