@@ -354,29 +354,29 @@ fn test_write_bytes() {
 }
 
 // Tests `AioCb::from_boxed_mut_slice` with `BytesMut`
-#[test]
-#[cfg_attr(all(target_env = "musl", target_arch = "x86_64"), ignore)]
-fn test_read_bytes_mut_small() {
-    const INITIAL: &[u8] = b"abcdef";
-    let rbuf = Box::new(BytesMut::from(vec![0; 4]));
-    const EXPECT: &[u8] = b"cdef";
-    let mut f = tempfile().unwrap();
-    f.write_all(INITIAL).unwrap();
-
-    let mut aiocb = AioCb::from_boxed_mut_slice( f.as_raw_fd(),
-                           2,   //offset
-                           rbuf,
-                           0,   //priority
-                           SigevNotify::SigevNone,
-                           LioOpcode::LIO_NOP);
-    aiocb.read().unwrap();
-
-    let err = poll_aio(&mut aiocb);
-    assert_eq!(err, Ok(()));
-    assert_eq!(aiocb.aio_return().unwrap() as usize, EXPECT.len());
-    let buffer = aiocb.boxed_mut_slice().unwrap();
-    assert_eq!(buffer.borrow(), EXPECT);
-}
+//#[test]
+//#[cfg_attr(all(target_env = "musl", target_arch = "x86_64"), ignore)]
+//fn test_read_bytes_mut_small() {
+//    const INITIAL: &[u8] = b"abcdef";
+//    let rbuf = Box::new(BytesMut::from(vec![0; 4]));
+//    const EXPECT: &[u8] = b"cdef";
+//    let mut f = tempfile().unwrap();
+//    f.write_all(INITIAL).unwrap();
+//
+//    let mut aiocb = AioCb::from_boxed_mut_slice( f.as_raw_fd(),
+//                           2,   //offset
+//                           rbuf,
+//                           0,   //priority
+//                           SigevNotify::SigevNone,
+//                           LioOpcode::LIO_NOP);
+//    aiocb.read().unwrap();
+//
+//    let err = poll_aio(&mut aiocb);
+//    assert_eq!(err, Ok(()));
+//    assert_eq!(aiocb.aio_return().unwrap() as usize, EXPECT.len());
+//    let buffer = aiocb.boxed_mut_slice().unwrap();
+//    assert_eq!(buffer.borrow(), EXPECT);
+//}
 
 // Tests `AioCb::from_ptr`
 #[test]
