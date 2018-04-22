@@ -85,3 +85,6 @@ pub mod statfs;
           )]
 pub mod statvfs;
 pub mod pthread;
+
+#[cfg(target_os = "linux")]
+pub mod xattr;
