@@ -55,7 +55,6 @@ libc_bitflags!(
         O_DIRECTORY;
         /// Implicitly follow each `write()` with an `fdatasync()`.
         #[cfg(any(target_os = "android",
-                  target_os = "dragonfly",
                   target_os = "ios",
                   target_os = "linux",
                   target_os = "macos",
@@ -170,8 +169,7 @@ pub fn openat<P: ?Sized + NixPath>(dirfd: RawFd, path: &P, oflag: OFlag, mode: M
     Errno::result(fd)
 }
 
-fn wrap_readlink_result<'a>(buffer: &'a mut[u8], res: ssize_t)
-  -> Result<&'a OsStr> {
+fn wrap_readlink_result(buffer: &mut[u8], res: ssize_t) -> Result<&OsStr> {
     match Errno::result(res) {
         Err(err) => Err(err),
         Ok(len) => {
@@ -269,6 +267,7 @@ pub fn renameat2<P1: ?Sized + NixPath, P2: ?Sized + NixPath>(olddirfd: RawFd, ol
     Errno::result(res).map(drop)
 }
 
+#[allow(missing_debug_implementations)]
 pub enum FcntlArg<'a> {
     F_DUPFD(RawFd),
     F_DUPFD_CLOEXEC(RawFd),
@@ -294,7 +293,7 @@ pub enum FcntlArg<'a> {
     #[cfg(any(target_os = "linux", target_os = "android"))]
     F_GETPIPE_SZ,
     #[cfg(any(target_os = "linux", target_os = "android"))]
-    F_SETPIPE_SZ(libc::c_int),
+    F_SETPIPE_SZ(c_int),
 
     // TODO: Rest of flags
 }
@@ -331,6 +330,8 @@ pub fn fcntl(fd: RawFd, arg: FcntlArg) -> Result<c_int> {
     Errno::result(res)
 }
 
+#[derive(Clone, Copy)]
+#[allow(missing_debug_implementations)]
 pub enum FlockArg {
     LockShared,
     LockExclusive,
@@ -407,7 +408,7 @@ pub fn vmsplice(fd: RawFd, iov: &[IoVec<&[u8]>], flags: SpliceFFlags) -> Result<
 #[cfg(any(target_os = "linux"))]
 libc_bitflags!(
     /// Mode argument flags for fallocate determining operation performed on a given range.
-    pub struct FallocateFlags: libc::c_int {
+    pub struct FallocateFlags: c_int {
         /// File size is not changed.
         ///
         /// offset + len can be greater than file size.

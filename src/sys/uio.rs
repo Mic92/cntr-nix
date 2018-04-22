@@ -25,7 +25,17 @@ pub fn readv(fd: RawFd, iov: &mut [IoVec<&mut [u8]>]) -> Result<usize> {
     Errno::result(res).map(|r| r as usize)
 }
 
-#[cfg(target_os = "linux")]
+/// Write to `fd` at `offset` from buffers in `iov`.
+///
+/// Buffers in `iov` will be written in order until all buffers have been written
+/// or an error occurs. The file offset is not changed.
+///
+/// See also: [`writev`](fn.writev.html) and [`pwrite`](fn.pwrite.html)
+#[cfg(any(target_os = "dragonfly",
+          target_os = "freebsd",
+          target_os = "linux",
+          target_os = "netbsd",
+          target_os = "openbsd"))]
 pub fn pwritev(fd: RawFd, iov: &[IoVec<&[u8]>],
                offset: off_t) -> Result<usize> {
     let res = unsafe {
@@ -35,7 +45,18 @@ pub fn pwritev(fd: RawFd, iov: &[IoVec<&[u8]>],
     Errno::result(res).map(|r| r as usize)
 }
 
-#[cfg(target_os = "linux")]
+/// Read from `fd` at `offset` filling buffers in `iov`.
+///
+/// Buffers in `iov` will be filled in order until all buffers have been filled,
+/// no more bytes are available, or an error occurs. The file offset is not
+/// changed.
+///
+/// See also: [`readv`](fn.readv.html) and [`pread`](fn.pread.html)
+#[cfg(any(target_os = "dragonfly",
+          target_os = "freebsd",
+          target_os = "linux",
+          target_os = "netbsd",
+          target_os = "openbsd"))]
 pub fn preadv(fd: RawFd, iov: &mut [IoVec<&mut [u8]>],
               offset: off_t) -> Result<usize> {
     let res = unsafe {
@@ -68,11 +89,13 @@ pub fn pread(fd: RawFd, buf: &mut [u8], offset: off64_t) -> Result<usize>{
 ///
 /// This is the same underlying C structure as [`IoVec`](struct.IoVec.html),
 /// except that it refers to memory in some other process, and is
-/// therefore not represented in Rust by an actual slice as IoVec is. It
+/// therefore not represented in Rust by an actual slice as `IoVec` is. It
 /// is used with [`process_vm_readv`](fn.process_vm_readv.html)
 /// and [`process_vm_writev`](fn.process_vm_writev.html).
 #[cfg(target_os = "linux")]
 #[repr(C)]
+#[derive(Clone, Copy)]
+#[allow(missing_debug_implementations)]
 pub struct RemoteIoVec {
     /// The starting address of this slice (`iov_base`).
     pub base: usize,
@@ -87,7 +110,7 @@ pub struct RemoteIoVec {
 /// and `remote_iov` is a list of [`RemoteIoVec`]s identifying where the
 /// data should be written in the target process. On success, returns the
 /// number of bytes written, which will always be a whole
-/// number of remote_iov chunks.
+/// number of `remote_iov` chunks.
 ///
 /// This requires the same permissions as debugging the process using
 /// [ptrace]: you must either be a privileged process (with
@@ -118,17 +141,17 @@ pub fn process_vm_writev(pid: ::unistd::Pid, local_iov: &[IoVec<&[u8]>], remote_
 /// data into, and `remote_iov` is a list of [`RemoteIoVec`]s identifying
 /// where the source data is in the target process. On success,
 /// returns the number of bytes written, which will always be a whole
-/// number of remote_iov chunks.
+/// number of `remote_iov` chunks.
 ///
 /// This requires the same permissions as debugging the process using
-/// [ptrace]: you must either be a privileged process (with
+/// [`ptrace`]: you must either be a privileged process (with
 /// `CAP_SYS_PTRACE`), or you must be running as the same user as the
 /// target process and the OS must have unprivileged debugging enabled.
 ///
 /// This function is only available on Linux.
 ///
 /// [`process_vm_readv`(2)]: http://man7.org/linux/man-pages/man2/process_vm_readv.2.html
-/// [ptrace]: ../ptrace/index.html
+/// [`ptrace`]: ../ptrace/index.html
 /// [`IoVec`]: struct.IoVec.html
 /// [`RemoteIoVec`]: struct.RemoteIoVec.html
 #[cfg(any(target_os = "linux"))]
@@ -143,11 +166,12 @@ pub fn process_vm_readv(pid: ::unistd::Pid, local_iov: &[IoVec<&mut [u8]>], remo
 }
 
 #[repr(C)]
+#[allow(missing_debug_implementations)]
 pub struct IoVec<T>(libc::iovec, PhantomData<T>);
 
 impl<T> IoVec<T> {
     #[inline]
-    pub fn as_slice<'a>(&'a self) -> &'a [u8] {
+    pub fn as_slice(&self) -> &[u8] {
         use std::slice;
 
         unsafe {

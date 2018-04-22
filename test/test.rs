@@ -1,3 +1,4 @@
+extern crate bytes;
 #[macro_use]
 extern crate cfg_if;
 #[macro_use]
@@ -12,7 +13,11 @@ extern crate tempfile;
 mod sys;
 mod test_dirent;
 mod test_fcntl;
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "dragonfly",
+          target_os = "freebsd",
+          target_os = "fushsia",
+          target_os = "linux",
+          target_os = "netbsd"))]
 mod test_mq;
 mod test_net;
 mod test_nix_path;
@@ -27,7 +32,7 @@ use std::os::unix::io::RawFd;
 use std::sync::Mutex;
 use nix::unistd::read;
 
-/// Helper function analogous to std::io::Read::read_exact, but for `RawFD`s
+/// Helper function analogous to `std::io::Read::read_exact`, but for `RawFD`s
 fn read_exact(f: RawFd, buf: &mut  [u8]) {
     let mut len = 0;
     while len < buf.len() {

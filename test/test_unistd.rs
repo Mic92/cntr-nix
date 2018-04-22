@@ -3,6 +3,7 @@ extern crate tempdir;
 use nix::fcntl::{self, fcntl, FcntlArg, FdFlag, OFlag};
 use nix::unistd::*;
 use nix::unistd::ForkResult::*;
+use nix::sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal, sigaction};
 use nix::sys::wait::*;
 use nix::sys::stat::{self, Mode, SFlag};
 use std::{self, env, iter};
@@ -12,7 +13,7 @@ use std::io::Write;
 use std::os::unix::prelude::*;
 use tempfile::tempfile;
 use tempdir::TempDir;
-use libc::{_exit, off_t};
+use libc::{self, _exit, off_t};
 
 #[test]
 fn test_fork_and_waitpid() {
@@ -20,9 +21,9 @@ fn test_fork_and_waitpid() {
     let m = ::FORK_MTX.lock().expect("Mutex got poisoned by another test");
 
     // Safe: Child only calls `_exit`, which is signal-safe
-    match fork() {
-        Ok(Child) => unsafe { _exit(0) },
-        Ok(Parent { child }) => {
+    match fork().expect("Error: Fork Failed") {
+        Child => unsafe { _exit(0) },
+        Parent { child } => {
             // assert that child was created and pid > 0
             let child_raw: ::libc::pid_t = child.into();
             assert!(child_raw > 0);
@@ -39,8 +40,6 @@ fn test_fork_and_waitpid() {
             }
 
         },
-        // panic, fork should never fail unless there is a serious problem with the OS
-        Err(_) => panic!("Error: Fork Failed")
     }
 }
 
@@ -51,17 +50,14 @@ fn test_wait() {
     let m = ::FORK_MTX.lock().expect("Mutex got poisoned by another test");
 
     // Safe: Child only calls `_exit`, which is signal-safe
-    let pid = fork();
-    match pid {
-        Ok(Child) => unsafe { _exit(0) },
-        Ok(Parent { child }) => {
+    match fork().expect("Error: Fork Failed") {
+        Child => unsafe { _exit(0) },
+        Parent { child } => {
             let wait_status = wait();
 
             // just assert that (any) one child returns with WaitStatus::Exited
             assert_eq!(wait_status, Ok(WaitStatus::Exited(child, 0)));
         },
-        // panic, fork should never fail unless there is a serious problem with the OS
-        Err(_) => panic!("Error: Fork Failed")
     }
 }
 
@@ -110,6 +106,14 @@ fn test_getpid() {
     let ppid: ::libc::pid_t = getppid().into();
     assert!(pid > 0);
     assert!(ppid > 0);
+}
+
+#[test]
+fn test_getsid() {
+    let none_sid: ::libc::pid_t = getsid(None).unwrap().into();
+    let pid_sid: ::libc::pid_t = getsid(Some(getpid())).unwrap().into();
+    assert!(none_sid > 0);
+    assert!(none_sid == pid_sid);
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -276,16 +280,17 @@ cfg_if!{
     if #[cfg(target_os = "android")] {
         execve_test_factory!(test_execve, execve, &CString::new("/system/bin/sh").unwrap());
         execve_test_factory!(test_fexecve, fexecve, File::open("/system/bin/sh").unwrap().into_raw_fd());
-    } else if #[cfg(any(target_os = "dragonfly",
-                        target_os = "freebsd",
+    } else if #[cfg(any(target_os = "freebsd",
+                        target_os = "linux",
                         target_os = "netbsd",
-                        target_os = "openbsd",
-                        target_os = "linux", ))] {
+                        target_os = "openbsd"))] {
         execve_test_factory!(test_execve, execve, &CString::new("/bin/sh").unwrap());
         execve_test_factory!(test_fexecve, fexecve, File::open("/bin/sh").unwrap().into_raw_fd());
-    } else if #[cfg(any(target_os = "ios", target_os = "macos", ))] {
+    } else if #[cfg(any(target_os = "dragonfly",
+                        target_os = "ios",
+                        target_os = "macos"))] {
         execve_test_factory!(test_execve, execve, &CString::new("/bin/sh").unwrap());
-        // No fexecve() on macos/ios.
+        // No fexecve() on macos/ios and DragonFly.
     }
 }
 
@@ -352,7 +357,7 @@ fn test_getcwd() {
 
 #[test]
 fn test_lseek() {
-    const CONTENTS: &'static [u8] = b"abcdef123456";
+    const CONTENTS: &[u8] = b"abcdef123456";
     let mut tmp = tempfile().unwrap();
     tmp.write_all(CONTENTS).unwrap();
     let tmpfd = tmp.into_raw_fd();
@@ -385,9 +390,9 @@ fn test_unlinkat() {
 #[cfg(any(target_os = "linux", target_os = "android"))]
 #[test]
 fn test_lseek64() {
-    const CONTENTS: &'static [u8] = b"abcdef123456";
+    const CONTENTS: &[u8] = b"abcdef123456";
     let mut tmp = tempfile().unwrap();
-    tmp.write(CONTENTS).unwrap();
+    tmp.write_all(CONTENTS).unwrap();
     let tmpfd = tmp.into_raw_fd();
 
     lseek64(tmpfd, 5, Whence::SeekSet).unwrap();
@@ -482,4 +487,52 @@ fn test_pipe2() {
     assert!(f0.contains(FdFlag::FD_CLOEXEC));
     let f1 = FdFlag::from_bits_truncate(fcntl(fd1, FcntlArg::F_GETFD).unwrap());
     assert!(f1.contains(FdFlag::FD_CLOEXEC));
+}
+
+// Used in `test_alarm`.
+static mut ALARM_CALLED: bool = false;
+
+// Used in `test_alarm`.
+pub extern fn alarm_signal_handler(raw_signal: libc::c_int) {
+    assert_eq!(raw_signal, libc::SIGALRM, "unexpected signal: {}", raw_signal);
+    unsafe { ALARM_CALLED = true };
+}
+
+#[test]
+fn test_alarm() {
+    let _m = ::SIGNAL_MTX.lock().expect("Mutex got poisoned by another test");
+
+    let handler = SigHandler::Handler(alarm_signal_handler);
+    let signal_action = SigAction::new(handler, SaFlags::SA_RESTART, SigSet::empty());
+    let old_handler = unsafe {
+        sigaction(Signal::SIGALRM, &signal_action)
+            .expect("unable to set signal handler for alarm")
+    };
+
+    // Set an alarm.
+    assert_eq!(alarm::set(60), None);
+
+    // Overwriting an alarm should return the old alarm.
+    assert_eq!(alarm::set(1), Some(60));
+
+    // We should be woken up after 1 second by the alarm, so we'll sleep for 2
+    // seconds to be sure.
+    sleep(2);
+    assert_eq!(unsafe { ALARM_CALLED }, true, "expected our alarm signal handler to be called");
+
+    // Reset the signal.
+    unsafe {
+        sigaction(Signal::SIGALRM, &old_handler)
+            .expect("unable to set signal handler for alarm");
+    }
+}
+
+#[test]
+fn test_canceling_alarm() {
+    let _m = ::SIGNAL_MTX.lock().expect("Mutex got poisoned by another test");
+
+    assert_eq!(alarm::cancel(), None);
+
+    assert_eq!(alarm::set(60), None);
+    assert_eq!(alarm::cancel(), Some(60));
 }

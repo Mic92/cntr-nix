@@ -24,6 +24,7 @@ use libc::{dirent as dirent64, ino_t as ino64_t, readdir as readdir64};
 use std::os::unix::io::RawFd;
 
 /// Directory Stream object
+#[derive(Debug)]
 pub struct DirectoryStream(*mut DIR);
 
 impl AsRef<DIR> for DirectoryStream {
@@ -51,6 +52,15 @@ impl Drop for DirectoryStream {
 
 /// A directory entry
 pub struct DirectoryEntry<'a>(&'a dirent64);
+
+use std::fmt::{self, Debug};
+impl<'a> Debug for DirectoryEntry<'a> {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_struct("DirectoryEntry")
+            .field("inode", &self.inode())
+            .finish()
+    }
+}
 
 impl<'a> DirectoryEntry<'a> {
     /// File name

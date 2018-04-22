@@ -34,7 +34,7 @@ libc_enum!{
         SIGPIPE,
         SIGALRM,
         SIGTERM,
-        #[cfg(all(any(target_os = "android", target_os = "emscripten", target_os = "linux"), 
+        #[cfg(all(any(target_os = "android", target_os = "emscripten", target_os = "linux"),
                   not(any(target_arch = "mips", target_arch = "mips64"))))]
         SIGSTKFLT,
         SIGCHLD,
@@ -163,6 +163,8 @@ const SIGNALS: [Signal; 31] = [
 
 pub const NSIG: libc::c_int = 32;
 
+#[derive(Clone, Copy)]
+#[allow(missing_debug_implementations)]
 pub struct SignalIterator {
     next: usize,
 }
@@ -191,9 +193,10 @@ impl Signal {
     // implemented, we'll replace this function.
     #[inline]
     pub fn from_c_int(signum: libc::c_int) -> Result<Signal> {
-        match 0 < signum && signum < NSIG {
-            true => Ok(unsafe { mem::transmute(signum) }),
-            false => Err(Error::invalid_argument()),
+        if 0 < signum && signum < NSIG {
+            Ok(unsafe { mem::transmute(signum) })
+        } else {
+            Err(Error::invalid_argument())
         }
     }
 }
@@ -254,6 +257,7 @@ libc_enum! {
 }
 
 #[derive(Clone, Copy)]
+#[allow(missing_debug_implementations)]
 pub struct SigSet {
     sigset: libc::sigset_t
 }
@@ -358,6 +362,8 @@ pub enum SigHandler {
     SigAction(extern fn(libc::c_int, *mut libc::siginfo_t, *mut libc::c_void))
 }
 
+#[derive(Clone, Copy)]
+#[allow(missing_debug_implementations)]
 pub struct SigAction {
     sigaction: libc::sigaction
 }
@@ -383,7 +389,7 @@ impl SigAction {
     }
 
     pub fn flags(&self) -> SaFlags {
-        SaFlags::from_bits(self.sigaction.sa_flags).unwrap()
+        SaFlags::from_bits_truncate(self.sigaction.sa_flags)
     }
 
     pub fn mask(&self) -> SigSet {
@@ -423,8 +429,8 @@ pub unsafe fn sigaction(signal: Signal, sigaction: &SigAction) -> Result<SigActi
 ///
 /// If both `set` and `oldset` is None, this function is a no-op.
 ///
-/// For more information, visit the [pthread_sigmask](http://pubs.opengroup.org/onlinepubs/9699919799/functions/pthread_sigmask.html),
-/// or [sigprocmask](http://pubs.opengroup.org/onlinepubs/9699919799/functions/sigprocmask.html) man pages.
+/// For more information, visit the [`pthread_sigmask`](http://pubs.opengroup.org/onlinepubs/9699919799/functions/pthread_sigmask.html),
+/// or [`sigprocmask`](http://pubs.opengroup.org/onlinepubs/9699919799/functions/sigprocmask.html) man pages.
 pub fn pthread_sigmask(how: SigmaskHow,
                        set: Option<&SigSet>,
                        oldset: Option<&mut SigSet>) -> Result<()> {
@@ -435,10 +441,31 @@ pub fn pthread_sigmask(how: SigmaskHow,
     let res = unsafe {
         // if set or oldset is None, pass in null pointers instead
         libc::pthread_sigmask(how as libc::c_int,
-                             set.map_or_else(|| ptr::null::<libc::sigset_t>(),
+                             set.map_or_else(ptr::null::<libc::sigset_t>,
                                              |s| &s.sigset as *const libc::sigset_t),
-                             oldset.map_or_else(|| ptr::null_mut::<libc::sigset_t>(),
+                             oldset.map_or_else(ptr::null_mut::<libc::sigset_t>,
                                                 |os| &mut os.sigset as *mut libc::sigset_t))
+    };
+
+    Errno::result(res).map(drop)
+}
+
+/// Examine and change blocked signals.
+///
+/// For more informations see the [`sigprocmask` man
+/// pages](http://pubs.opengroup.org/onlinepubs/9699919799/functions/sigprocmask.html).
+pub fn sigprocmask(how: SigmaskHow, set: Option<&SigSet>, oldset: Option<&mut SigSet>) -> Result<()> {
+    if set.is_none() && oldset.is_none() {
+        return Ok(())
+    }
+
+    let res = unsafe {
+        // if set or oldset is None, pass in null pointers instead
+        libc::sigprocmask(how as libc::c_int,
+                          set.map_or_else(ptr::null::<libc::sigset_t>,
+                                          |s| &s.sigset as *const libc::sigset_t),
+                          oldset.map_or_else(ptr::null_mut::<libc::sigset_t>,
+                                             |os| &mut os.sigset as *mut libc::sigset_t))
     };
 
     Errno::result(res).map(drop)
@@ -506,6 +533,7 @@ mod sigevent {
     /// Used to request asynchronous notification of the completion of certain
     /// events, such as POSIX AIO and timers.
     #[repr(C)]
+    #[derive(Clone, Copy)]
     pub struct SigEvent {
         sigevent: libc::sigevent
     }
@@ -560,8 +588,8 @@ mod sigevent {
 
         #[cfg(any(target_os = "freebsd", target_os = "linux"))]
         fn set_tid(sev: &mut libc::sigevent, sigev_notify: &SigevNotify) {
-            sev.sigev_notify_thread_id = match sigev_notify {
-                &SigevNotify::SigevThreadId { thread_id, .. } => thread_id,
+            sev.sigev_notify_thread_id = match *sigev_notify {
+                SigevNotify::SigevThreadId { thread_id, .. } => thread_id,
                 _ => 0 as type_of_thread_id
             };
         }
@@ -599,7 +627,7 @@ mod sigevent {
 
     impl<'a> From<&'a libc::sigevent> for SigEvent {
         fn from(sigevent: &libc::sigevent) -> Self {
-            SigEvent{ sigevent: sigevent.clone() }
+            SigEvent{ sigevent: *sigevent }
         }
     }
 }

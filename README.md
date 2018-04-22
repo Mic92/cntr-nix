@@ -33,7 +33,7 @@ pub fn gethostname<'a>(buffer: &'a mut [u8]) -> Result<&'a CStr>;
 nix target support consists of two tiers. While nix attempts to support all
 platforms supported by [libc](https://github.com/rust-lang/libc), only some
 platforms are actively supported due to either technical or manpower
-limitations. Support for platforms is split into two tiers:
+limitations. Support for platforms is split into three tiers:
 
   * Tier 1 - Builds and tests for this target are run in CI. Failures of either
              block the inclusion of new code.
@@ -88,7 +88,7 @@ To use `nix`, first add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-nix = "0.9.0"
+nix = "0.10.0"
 ```
 
 Then, add this to your crate root:

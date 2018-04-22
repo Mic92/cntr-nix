@@ -3,7 +3,7 @@ use std::os::unix::io::RawFd;
 use {Result, NixPath};
 use errno::Errno;
 
-fn getxattr<P1: ?Sized + NixPath, P2: ?Sized + NixPath>(
+pub fn getxattr<P1: ?Sized + NixPath, P2: ?Sized + NixPath>(
     path: &P1,
     name: &P2,
     buf: &mut [u8],
@@ -23,7 +23,7 @@ fn getxattr<P1: ?Sized + NixPath, P2: ?Sized + NixPath>(
     Errno::result(res).map(|size| size as usize)
 }
 
-fn fgetxattr<P: ?Sized + NixPath>(fd: RawFd, name: &P, buf: &mut [u8]) -> Result<usize> {
+pub fn fgetxattr<P: ?Sized + NixPath>(fd: RawFd, name: &P, buf: &mut [u8]) -> Result<usize> {
     let res = try!(unsafe {
         name.with_nix_path(|cstr| {
             libc::fgetxattr(
@@ -37,7 +37,7 @@ fn fgetxattr<P: ?Sized + NixPath>(fd: RawFd, name: &P, buf: &mut [u8]) -> Result
     Errno::result(res).map(|size| size as usize)
 }
 
-fn lgetxattr<P1: ?Sized + NixPath, P2: ?Sized + NixPath>(
+pub fn lgetxattr<P1: ?Sized + NixPath, P2: ?Sized + NixPath>(
     path: &P1,
     name: &P2,
     buf: &mut [u8],
@@ -57,7 +57,7 @@ fn lgetxattr<P1: ?Sized + NixPath, P2: ?Sized + NixPath>(
     Errno::result(res).map(|size| size as usize)
 }
 
-fn listxattr<P: ?Sized + NixPath>(path: &P, list: &mut [u8]) -> Result<usize> {
+pub fn listxattr<P: ?Sized + NixPath>(path: &P, list: &mut [u8]) -> Result<usize> {
     let res = try!(unsafe {
         path.with_nix_path(|cstr| {
             libc::listxattr(cstr.as_ptr(), list.as_mut_ptr() as *mut i8, list.len())
@@ -66,12 +66,12 @@ fn listxattr<P: ?Sized + NixPath>(path: &P, list: &mut [u8]) -> Result<usize> {
     Errno::result(res).map(|size| size as usize)
 }
 
-fn flistxattr(fd: RawFd, list: &mut [u8]) -> Result<usize> {
+pub fn flistxattr(fd: RawFd, list: &mut [u8]) -> Result<usize> {
     let res = unsafe { libc::flistxattr(fd, list.as_mut_ptr() as *mut i8, list.len()) };
     Errno::result(res).map(|size| size as usize)
 }
 
-fn llistxattr<P: ?Sized + NixPath>(path: &P, list: &mut [u8]) -> Result<usize> {
+pub fn llistxattr<P: ?Sized + NixPath>(path: &P, list: &mut [u8]) -> Result<usize> {
     let res = try!(unsafe {
         path.with_nix_path(|cstr| {
             libc::llistxattr(cstr.as_ptr(), list.as_mut_ptr() as *mut i8, list.len())
@@ -80,7 +80,7 @@ fn llistxattr<P: ?Sized + NixPath>(path: &P, list: &mut [u8]) -> Result<usize> {
     Errno::result(res).map(|size| size as usize)
 }
 
-fn lsetxattr<P1: ?Sized + NixPath, P2: ?Sized + NixPath>(
+pub fn lsetxattr<P1: ?Sized + NixPath, P2: ?Sized + NixPath>(
     path: &P1,
     name: &P2,
     buf: &[u8],
@@ -102,7 +102,7 @@ fn lsetxattr<P1: ?Sized + NixPath, P2: ?Sized + NixPath>(
     Errno::result(res).map(drop)
 }
 
-fn setxattr<P1: ?Sized + NixPath, P2: ?Sized + NixPath>(
+pub fn setxattr<P1: ?Sized + NixPath, P2: ?Sized + NixPath>(
     path: &P1,
     name: &P2,
     buf: &[u8],
@@ -124,7 +124,7 @@ fn setxattr<P1: ?Sized + NixPath, P2: ?Sized + NixPath>(
     Errno::result(res).map(drop)
 }
 
-fn fsetxattr<P: ?Sized + NixPath>(fd: RawFd, name: &P, buf: &[u8], flags: c_int) -> Result<()> {
+pub fn fsetxattr<P: ?Sized + NixPath>(fd: RawFd, name: &P, buf: &[u8], flags: c_int) -> Result<()> {
     let res = try!(unsafe {
         name.with_nix_path(|cstr| {
             libc::fsetxattr(
@@ -138,7 +138,7 @@ fn fsetxattr<P: ?Sized + NixPath>(fd: RawFd, name: &P, buf: &[u8], flags: c_int)
     Errno::result(res).map(drop)
 }
 
-fn removexattr<P1: ?Sized + NixPath, P2: ?Sized + NixPath>(path: &P1, name: &P2) -> Result<()> {
+pub fn removexattr<P1: ?Sized + NixPath, P2: ?Sized + NixPath>(path: &P1, name: &P2) -> Result<()> {
     let res = try!(try!(unsafe {
         path.with_nix_path(|p| {
             name.with_nix_path(|n| libc::removexattr(p.as_ptr(), n.as_ptr()))
@@ -147,14 +147,14 @@ fn removexattr<P1: ?Sized + NixPath, P2: ?Sized + NixPath>(path: &P1, name: &P2)
     Errno::result(res).map(drop)
 }
 
-fn fremovexattr<P: ?Sized + NixPath>(fd: RawFd, name: &P) -> Result<()> {
+pub fn fremovexattr<P: ?Sized + NixPath>(fd: RawFd, name: &P) -> Result<()> {
     let res = try!(unsafe {
         name.with_nix_path(|cstr| libc::fremovexattr(fd, cstr.as_ptr()))
     });
     Errno::result(res).map(drop)
 }
 
-fn lremovexattr<P1: ?Sized + NixPath, P2: ?Sized + NixPath>(path: &P1, name: &P2) -> Result<()> {
+pub fn lremovexattr<P1: ?Sized + NixPath, P2: ?Sized + NixPath>(path: &P1, name: &P2) -> Result<()> {
     let res = try!(try!(unsafe {
         path.with_nix_path(|p| {
             name.with_nix_path(|n| libc::lremovexattr(p.as_ptr(), n.as_ptr()))

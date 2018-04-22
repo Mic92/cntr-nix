@@ -5,7 +5,7 @@
 use Result;
 use errno::Errno;
 
-use libc::{self, c_char, c_long, mode_t, mqd_t, size_t};
+use libc::{self, c_char, c_long, mqd_t, size_t};
 use std::ffi::CString;
 use sys::stat::Mode;
 use std::mem;
@@ -30,6 +30,7 @@ libc_bitflags!{
 
 #[repr(C)]
 #[derive(Clone, Copy)]
+#[allow(missing_debug_implementations)]
 pub struct MqAttr {
     mq_attr: libc::mq_attr,
 }
@@ -66,7 +67,7 @@ impl MqAttr {
 
 /// Open a message queue
 ///
-/// See also [mq_open(2)](http://pubs.opengroup.org/onlinepubs/9699919799/functions/mq_open.html)
+/// See also [`mq_open(2)`](http://pubs.opengroup.org/onlinepubs/9699919799/functions/mq_open.html)
 pub fn mq_open(name: &CString,
                oflag: MQ_OFlag,
                mode: Mode,
@@ -76,7 +77,7 @@ pub fn mq_open(name: &CString,
         Some(mq_attr) => unsafe {
             libc::mq_open(name.as_ptr(),
                           oflag.bits(),
-                          mode.bits() as mode_t,
+                          mode.bits() as libc::c_int,
                           &mq_attr.mq_attr as *const libc::mq_attr)
         },
         None => unsafe { libc::mq_open(name.as_ptr(), oflag.bits()) },
@@ -86,7 +87,7 @@ pub fn mq_open(name: &CString,
 
 /// Remove a message queue
 ///
-/// See also [mq_unlink(2)](http://pubs.opengroup.org/onlinepubs/9699919799/functions/mq_unlink.html)
+/// See also [`mq_unlink(2)`](http://pubs.opengroup.org/onlinepubs/9699919799/functions/mq_unlink.html)
 pub fn mq_unlink(name: &CString) -> Result<()> {
     let res = unsafe { libc::mq_unlink(name.as_ptr()) };
     Errno::result(res).map(drop)
@@ -94,7 +95,7 @@ pub fn mq_unlink(name: &CString) -> Result<()> {
 
 /// Close a message queue
 ///
-/// See also [mq_close(2)](http://pubs.opengroup.org/onlinepubs/9699919799/functions/mq_close.html)
+/// See also [`mq_close(2)`](http://pubs.opengroup.org/onlinepubs/9699919799/functions/mq_close.html)
 pub fn mq_close(mqdes: mqd_t) -> Result<()> {
     let res = unsafe { libc::mq_close(mqdes) };
     Errno::result(res).map(drop)
@@ -102,7 +103,7 @@ pub fn mq_close(mqdes: mqd_t) -> Result<()> {
 
 /// Receive a message from a message queue
 ///
-/// See also [mq_receive(2)](http://pubs.opengroup.org/onlinepubs/9699919799/functions/mq_receive.html)
+/// See also [`mq_receive(2)`](http://pubs.opengroup.org/onlinepubs/9699919799/functions/mq_receive.html)
 pub fn mq_receive(mqdes: mqd_t, message: &mut [u8], msg_prio: &mut u32) -> Result<usize> {
     let len = message.len() as size_t;
     let res = unsafe {
@@ -116,7 +117,7 @@ pub fn mq_receive(mqdes: mqd_t, message: &mut [u8], msg_prio: &mut u32) -> Resul
 
 /// Send a message to a message queue
 ///
-/// See also [mq_send(2)](http://pubs.opengroup.org/onlinepubs/9699919799/functions/mq_send.html)
+/// See also [`mq_send(2)`](http://pubs.opengroup.org/onlinepubs/9699919799/functions/mq_send.html)
 pub fn mq_send(mqdes: mqd_t, message: &[u8], msq_prio: u32) -> Result<()> {
     let res = unsafe {
         libc::mq_send(mqdes,
@@ -129,7 +130,7 @@ pub fn mq_send(mqdes: mqd_t, message: &[u8], msq_prio: u32) -> Result<()> {
 
 /// Get message queue attributes
 ///
-/// See also [mq_getattr(2)](http://pubs.opengroup.org/onlinepubs/9699919799/functions/mq_getattr.html)
+/// See also [`mq_getattr(2)`](http://pubs.opengroup.org/onlinepubs/9699919799/functions/mq_getattr.html)
 pub fn mq_getattr(mqd: mqd_t) -> Result<MqAttr> {
     let mut attr = unsafe { mem::uninitialized::<libc::mq_attr>() };
     let res = unsafe { libc::mq_getattr(mqd, &mut attr) };

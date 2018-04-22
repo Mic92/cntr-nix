@@ -17,8 +17,12 @@ use errno::Errno;
 ///
 /// This is returned by `openpty`.  Note that this type does *not* implement `Drop`, so the user
 /// must manually close the file descriptors.
+#[derive(Clone, Copy)]
+#[allow(missing_debug_implementations)]
 pub struct OpenptyResult {
+    /// The master port in a virtual pty pair
     pub master: RawFd,
+    /// The slave port in a virtual pty pair
     pub slave: RawFd,
 }
 
@@ -68,21 +72,21 @@ impl Drop for PtyMaster {
 }
 
 /// Grant access to a slave pseudoterminal (see
-/// [grantpt(3)](http://pubs.opengroup.org/onlinepubs/9699919799/functions/grantpt.html))
+/// [`grantpt(3)`](http://pubs.opengroup.org/onlinepubs/9699919799/functions/grantpt.html))
 ///
 /// `grantpt()` changes the mode and owner of the slave pseudoterminal device corresponding to the
 /// master pseudoterminal referred to by `fd`. This is a necessary step towards opening the slave.
 #[inline]
 pub fn grantpt(fd: &PtyMaster) -> Result<()> {
     if unsafe { libc::grantpt(fd.as_raw_fd()) } < 0 {
-        return Err(Error::last().into());
+        return Err(Error::last());
     }
 
     Ok(())
 }
 
 /// Open a pseudoterminal device (see
-/// [posix_openpt(3)](http://pubs.opengroup.org/onlinepubs/9699919799/functions/posix_openpt.html))
+/// [`posix_openpt(3)`](http://pubs.opengroup.org/onlinepubs/9699919799/functions/posix_openpt.html))
 ///
 /// `posix_openpt()` returns a file descriptor to an existing unused pseuterminal master device.
 ///
@@ -122,14 +126,14 @@ pub fn posix_openpt(flags: fcntl::OFlag) -> Result<PtyMaster> {
     };
 
     if fd < 0 {
-        return Err(Error::last().into());
+        return Err(Error::last());
     }
 
     Ok(PtyMaster(fd))
 }
 
 /// Get the name of the slave pseudoterminal (see
-/// [ptsname(3)](http://man7.org/linux/man-pages/man3/ptsname.3.html))
+/// [`ptsname(3)`](http://man7.org/linux/man-pages/man3/ptsname.3.html))
 ///
 /// `ptsname()` returns the name of the slave pseudoterminal device corresponding to the master
 /// referred to by `fd`.
@@ -148,7 +152,7 @@ pub fn posix_openpt(flags: fcntl::OFlag) -> Result<PtyMaster> {
 pub unsafe fn ptsname(fd: &PtyMaster) -> Result<String> {
     let name_ptr = libc::ptsname(fd.as_raw_fd());
     if name_ptr.is_null() {
-        return Err(Error::last().into());
+        return Err(Error::last());
     }
 
     let name = CStr::from_ptr(name_ptr);
@@ -156,7 +160,7 @@ pub unsafe fn ptsname(fd: &PtyMaster) -> Result<String> {
 }
 
 /// Get the name of the slave pseudoterminal (see
-/// [ptsname(3)](http://man7.org/linux/man-pages/man3/ptsname.3.html))
+/// [`ptsname(3)`](http://man7.org/linux/man-pages/man3/ptsname.3.html))
 ///
 /// `ptsname_r()` returns the name of the slave pseudoterminal device corresponding to the master
 /// referred to by `fd`. This is the threadsafe version of `ptsname()`, but it is not part of the
@@ -170,7 +174,7 @@ pub fn ptsname_r(fd: &PtyMaster) -> Result<String> {
     let mut name_buf = vec![0u8; 64];
     let name_buf_ptr = name_buf.as_mut_ptr() as *mut libc::c_char;
     if unsafe { libc::ptsname_r(fd.as_raw_fd(), name_buf_ptr, name_buf.capacity()) } != 0 {
-        return Err(Error::last().into());
+        return Err(Error::last());
     }
 
     // Find the first null-character terminating this string. This is guaranteed to succeed if the
@@ -183,7 +187,7 @@ pub fn ptsname_r(fd: &PtyMaster) -> Result<String> {
 }
 
 /// Unlock a pseudoterminal master/slave pseudoterminal pair (see
-/// [unlockpt(3)](http://pubs.opengroup.org/onlinepubs/9699919799/functions/unlockpt.html))
+/// [`unlockpt(3)`](http://pubs.opengroup.org/onlinepubs/9699919799/functions/unlockpt.html))
 ///
 /// `unlockpt()` unlocks the slave pseudoterminal device corresponding to the master pseudoterminal
 /// referred to by `fd`. This must be called before trying to open the slave side of a
@@ -191,7 +195,7 @@ pub fn ptsname_r(fd: &PtyMaster) -> Result<String> {
 #[inline]
 pub fn unlockpt(fd: &PtyMaster) -> Result<()> {
     if unsafe { libc::unlockpt(fd.as_raw_fd()) } < 0 {
-        return Err(Error::last().into());
+        return Err(Error::last());
     }
 
     Ok(())
@@ -200,7 +204,7 @@ pub fn unlockpt(fd: &PtyMaster) -> Result<()> {
 
 /// Create a new pseudoterminal, returning the slave and master file descriptors
 /// in `OpenptyResult`
-/// (see [openpty](http://man7.org/linux/man-pages/man3/openpty.3.html)).
+/// (see [`openpty`](http://man7.org/linux/man-pages/man3/openpty.3.html)).
 ///
 /// If `winsize` is not `None`, the window size of the slave will be set to
 /// the values in `winsize`. If `termios` is not `None`, the pseudoterminal's
