@@ -119,10 +119,11 @@ pub fn test_socketpair() {
 #[test]
 pub fn test_scm_rights() {
     use nix::sys::uio::IoVec;
+    use std::mem;
     use nix::unistd::{pipe, read, write, close};
     use nix::sys::socket::{socketpair, sendmsg, recvmsg,
                            AddressFamily, SockType, SockFlag,
-                           ControlMessage, CmsgSpace, MsgFlags};
+                           ControlMessage, MsgFlags};
 
     let (fd1, fd2) = socketpair(AddressFamily::Unix, SockType::Stream, None, SockFlag::empty())
                      .unwrap();
@@ -141,8 +142,7 @@ pub fn test_scm_rights() {
     {
         let mut buf = [0u8; 5];
         let iov = [IoVec::from_mut_slice(&mut buf[..])];
-        let mut cmsgspace: CmsgSpace<[RawFd; 1]> = CmsgSpace::new();
-        let msg = recvmsg(fd2, &iov, Some(&mut cmsgspace), MsgFlags::empty()).unwrap();
+        let msg = recvmsg(fd2, &iov, mem::size_of::<[RawFd; 1]>(), MsgFlags::empty()).unwrap();
 
         for cmsg in msg.cmsgs() {
             if let ControlMessage::ScmRights(fd) = cmsg {
@@ -173,19 +173,19 @@ fn test_scm_rights_single_cmsg_multiple_fds() {
     use std::os::unix::net::UnixDatagram;
     use std::os::unix::io::{RawFd, AsRawFd};
     use std::thread;
-    use nix::sys::socket::{CmsgSpace, ControlMessage, MsgFlags, sendmsg, recvmsg};
+    use nix::sys::socket::{ControlMessage, MsgFlags, sendmsg, recvmsg};
     use nix::sys::uio::IoVec;
+    use std::mem;
     use libc;
 
     let (send, receive) = UnixDatagram::pair().unwrap();
     let thread = thread::spawn(move || {
         let mut buf = [0u8; 8];
         let iovec = [IoVec::from_mut_slice(&mut buf)];
-        let mut space = CmsgSpace::<[RawFd; 2]>::new();
         let msg = recvmsg(
             receive.as_raw_fd(),
             &iovec,
-            Some(&mut space),
+            mem::size_of::<[RawFd; 2]>(),
             MsgFlags::empty()
         ).unwrap();
         assert!(!msg.flags.intersects(MsgFlags::MSG_TRUNC | MsgFlags::MSG_CTRUNC));
@@ -220,9 +220,10 @@ fn test_scm_rights_single_cmsg_multiple_fds() {
 pub fn test_sendmsg_empty_cmsgs() {
     use nix::sys::uio::IoVec;
     use nix::unistd::close;
+    use std::mem;
     use nix::sys::socket::{socketpair, sendmsg, recvmsg,
                            AddressFamily, SockType, SockFlag,
-                           CmsgSpace, MsgFlags};
+                           MsgFlags};
 
     let (fd1, fd2) = socketpair(AddressFamily::Unix, SockType::Stream, None, SockFlag::empty())
                      .unwrap();
@@ -236,8 +237,7 @@ pub fn test_sendmsg_empty_cmsgs() {
     {
         let mut buf = [0u8; 5];
         let iov = [IoVec::from_mut_slice(&mut buf[..])];
-        let mut cmsgspace: CmsgSpace<[RawFd; 1]> = CmsgSpace::new();
-        let msg = recvmsg(fd2, &iov, Some(&mut cmsgspace), MsgFlags::empty()).unwrap();
+        let msg = recvmsg(fd2, &iov, mem::size_of::<[RawFd; 1]>(), MsgFlags::empty()).unwrap();
 
         for _ in msg.cmsgs() {
             panic!("unexpected cmsg");

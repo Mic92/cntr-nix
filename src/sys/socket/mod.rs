@@ -329,51 +329,21 @@ cfg_if! {
     }
 }
 
-/// A structure used to make room in a cmsghdr passed to recvmsg. The
-/// size and alignment match that of a cmsghdr followed by a T, but the
-/// fields are not accessible, as the actual types will change on a call
-/// to recvmsg.
-///
-/// To make room for multiple messages, nest the type parameter with
-/// tuples:
-///
-/// ```
-/// use std::os::unix::io::RawFd;
-/// use nix::sys::socket::CmsgSpace;
-/// let cmsg: CmsgSpace<([RawFd; 3], CmsgSpace<[RawFd; 2]>)> = CmsgSpace::new();
-/// ```
-#[repr(C)]
 #[allow(missing_debug_implementations)]
-pub struct CmsgSpace<T> {
-    _hdr: cmsghdr,
-    _pad: [align_of_cmsg_data; 0],
-    _data: T,
-}
-
-impl<T> CmsgSpace<T> {
-    /// Create a CmsgSpace<T>. The structure is used only for space, so
-    /// the fields are uninitialized.
-    pub fn new() -> Self {
-        // Safe because the fields themselves aren't accessible.
-        unsafe { mem::uninitialized() }
-    }
-}
-
-#[allow(missing_debug_implementations)]
-pub struct RecvMsg<'a> {
+pub struct RecvMsg {
     // The number of bytes received.
     pub bytes: usize,
-    cmsg_buffer: &'a [u8],
+    cmsg_buffer: Vec<u8>,
     pub address: Option<SockAddr>,
     pub flags: MsgFlags,
 }
 
-impl<'a> RecvMsg<'a> {
+impl RecvMsg {
     /// Iterate over the valid control messages pointed to by this
     /// msghdr.
     pub fn cmsgs(&self) -> CmsgIterator {
         CmsgIterator {
-            buf: self.cmsg_buffer,
+            buf: &self.cmsg_buffer,
             next: 0
         }
     }
@@ -475,6 +445,7 @@ pub enum ControlMessage<'a> {
     /// use nix::sys::uio::IoVec;
     /// use nix::sys::time::*;
     /// use std::time::*;
+    /// use std::mem;
     ///
     /// // Set up
     /// let message1 = "Ohayō!".as_bytes();
@@ -493,14 +464,14 @@ pub enum ControlMessage<'a> {
     ///
     /// // Receive the first
     /// let mut buffer1 = vec![0u8; message1.len() + message2.len()];
-    /// let mut time1: CmsgSpace<TimeVal> = CmsgSpace::new();
-    /// let received1 = recvmsg(in_socket, &[IoVec::from_mut_slice(&mut buffer1)], Some(&mut time1), MsgFlags::empty()).unwrap();
+    /// let mut time1 = TimeVal::seconds(0);
+    /// let received1 = recvmsg(in_socket, &[IoVec::from_mut_slice(&mut buffer1)], mem::size_of_val(&time1), MsgFlags::empty()).unwrap();
     /// let mut time1 = if let Some(ControlMessage::ScmTimestamp(&time1)) = received1.cmsgs().next() { time1 } else { panic!("Unexpected or no control message") };
     ///
     /// // Receive the second
     /// let mut buffer2 = vec![0u8; message1.len() + message2.len()];
-    /// let mut time2: CmsgSpace<TimeVal> = CmsgSpace::new();
-    /// let received2 = recvmsg(in_socket, &[IoVec::from_mut_slice(&mut buffer2)], Some(&mut time2), MsgFlags::empty()).unwrap();
+    /// let mut time2 = TimeVal::seconds(0);
+    /// let received2 = recvmsg(in_socket, &[IoVec::from_mut_slice(&mut buffer2)], mem::size_of_val(&time2), MsgFlags::empty()).unwrap();
     /// let mut time2 = if let Some(ControlMessage::ScmTimestamp(&time2)) = received2.cmsgs().next() { time2 } else { panic!("Unexpected or no control message") };
     ///
     /// // Swap if needed; UDP is unordered
@@ -682,12 +653,23 @@ pub fn sendmsg<'a>(fd: RawFd, iov: &[IoVec<&'a [u8]>], cmsgs: &[ControlMessage<'
 /// Receive message in scatter-gather vectors from a socket, and
 /// optionally receive ancillary data into the provided buffer.
 /// If no ancillary data is desired, use () as the type parameter.
-pub fn recvmsg<'a, T>(fd: RawFd, iov: &[IoVec<&mut [u8]>], cmsg_buffer: Option<&'a mut CmsgSpace<T>>, flags: MsgFlags) -> Result<RecvMsg<'a>> {
+pub fn recvmsg(fd: RawFd, iov: &[IoVec<&mut [u8]>], cmsg_size: usize, flags: MsgFlags) -> Result<RecvMsg> {
     let mut address: sockaddr_storage = unsafe { mem::uninitialized() };
-    let (msg_control, msg_controllen) = match cmsg_buffer {
-        Some(cmsg_buffer) => (cmsg_buffer as *mut _, mem::size_of_val(cmsg_buffer)),
-        None => (ptr::null_mut(), 0),
+
+    let msg_controllen = if cmsg_size > 0 {
+        mem::size_of::<cmsghdr>() + cmsg_size
+    } else {
+        0
     };
+    let mut cmsg_buffer = Vec::<u8>::with_capacity(msg_controllen);
+
+    let msg_control = if msg_controllen > 0 {
+        unsafe { cmsg_buffer.set_len(msg_controllen) };
+        cmsg_buffer.as_ptr() as *mut c_void
+    } else {
+        ptr::null_mut()
+    };
+
     let mut mhdr = unsafe {
         let mut mhdr: msghdr = mem::uninitialized();
         mhdr.msg_name =  &mut address as *mut _ as *mut _;
@@ -700,20 +682,6 @@ pub fn recvmsg<'a, T>(fd: RawFd, iov: &[IoVec<&mut [u8]>], cmsg_buffer: Option<&
         mhdr
     };
     let ret = unsafe { libc::recvmsg(fd, &mut mhdr, flags.bits()) };
-
-    let cmsg_buffer = if msg_controllen > 0 {
-        // got control message(s)
-        debug_assert!(!mhdr.msg_control.is_null());
-        unsafe {
-            // Safe: The pointer is not null and the length is correct as part of `recvmsg`s
-            // contract.
-            slice::from_raw_parts(mhdr.msg_control as *const u8,
-                                  mhdr.msg_controllen as usize)
-        }
-    } else {
-        // No control message, create an empty buffer to avoid creating a slice from a null pointer
-        &[]
-    };
 
     Ok(unsafe { RecvMsg {
         bytes: try!(Errno::result(ret)) as usize,
