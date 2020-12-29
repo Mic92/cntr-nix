@@ -64,7 +64,7 @@ fn lgetxattr<P1: ?Sized + NixPath, P2: ?Sized + NixPath>(
 fn listxattr<P: ?Sized + NixPath>(path: &P, list: &mut [u8]) -> Result<usize> {
     let res = try!(unsafe {
         path.with_nix_path(|cstr| {
-            libc::listxattr(cstr.as_ptr(), list.as_mut_ptr() as *mut i8, list.len())
+            libc::listxattr(cstr.as_ptr(), list.as_mut_ptr() as *mut libc::c_char, list.len())
         })
     });
     Errno::result(res).map(|size| size as usize)
@@ -72,7 +72,7 @@ fn listxattr<P: ?Sized + NixPath>(path: &P, list: &mut [u8]) -> Result<usize> {
 
 #[allow(unused)]
 fn flistxattr(fd: RawFd, list: &mut [u8]) -> Result<usize> {
-    let res = unsafe { libc::flistxattr(fd, list.as_mut_ptr() as *mut i8, list.len()) };
+    let res = unsafe { libc::flistxattr(fd, list.as_mut_ptr() as *mut libc::c_char, list.len()) };
     Errno::result(res).map(|size| size as usize)
 }
 
@@ -80,7 +80,7 @@ fn flistxattr(fd: RawFd, list: &mut [u8]) -> Result<usize> {
 fn llistxattr<P: ?Sized + NixPath>(path: &P, list: &mut [u8]) -> Result<usize> {
     let res = try!(unsafe {
         path.with_nix_path(|cstr| {
-            libc::llistxattr(cstr.as_ptr(), list.as_mut_ptr() as *mut i8, list.len())
+            libc::llistxattr(cstr.as_ptr(), list.as_mut_ptr() as *mut libc::c_char, list.len())
         })
     });
     Errno::result(res).map(|size| size as usize)
