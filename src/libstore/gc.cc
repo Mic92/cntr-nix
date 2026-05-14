@@ -40,6 +40,22 @@ namespace nix {
 static std::string gcSocketPath = "gc-socket/socket";
 static std::string gcRootsDir = "gcroots";
 
+#if HAVE_STATVFS
+static uint64_t getAvailableStoreSpace(const LocalStoreConfig & config)
+{
+    static auto fakeFreeSpaceFile = getEnv("_NIX_TEST_FREE_SPACE_FILE");
+
+    if (fakeFreeSpaceFile)
+        return std::stoll(readFile(*fakeFreeSpaceFile));
+
+    struct statvfs st;
+    if (statvfs(config.realStoreDir.get().c_str(), &st))
+        throw SysError("getting filesystem info about '%s'", PathFmt(config.realStoreDir.get()));
+
+    return (uint64_t) st.f_bavail * st.f_frsize;
+}
+#endif
+
 void LocalStore::addIndirectRoot(const std::filesystem::path & path)
 {
     std::string hash = hashString(HashAlgorithm::SHA1, path.string()).to_string(HashFormat::Nix32, false);
@@ -354,9 +370,15 @@ struct GCLimitReached
 
 void LocalStore::collectGarbage(const GCOptions & options, GCResults & results)
 {
+    collectGarbage(options, results, GCTrigger::Explicit);
+}
+
+void LocalStore::collectGarbage(const GCOptions & options, GCResults & results, GCTrigger gcTrigger)
+{
     const auto & gcSettings = config->getLocalSettings().getGCSettings();
 
     bool shouldDelete = options.action == GCOptions::gcDeleteDead || options.action == GCOptions::gcDeleteSpecific;
+    auto maxFreed = options.maxFreed;
 
     boost::unordered_flat_set<StorePath, std::hash<StorePath>> roots, dead, alive;
 
@@ -383,14 +405,43 @@ void LocalStore::collectGarbage(const GCOptions & options, GCResults & results)
 
     std::condition_variable wakeup;
 
-    if (shouldDelete)
+    /* Auto-GC keeps the reserve until the post-lock recheck confirms
+       GC is still needed. */
+    if (shouldDelete && gcTrigger == GCTrigger::Explicit)
         deletePath(reservedPath);
 
     /* Acquire the global GC root. Note: we don't use fdGCLock
        here because then in auto-gc mode, another thread could
        downgrade our exclusive lock. */
-    auto fdGCLock = openGCLock();
+    AutoCloseFD fdGCLock;
+    try {
+        fdGCLock = openGCLock();
+    } catch (SystemError & e) {
+        if (gcTrigger != GCTrigger::Auto || !e.is(std::errc::no_space_on_device))
+            throw;
+        /* Not even enough space to create the lock file: free the
+           reserve now instead of waiting for the post-lock recheck. */
+        deletePath(reservedPath);
+        fdGCLock = openGCLock();
+    }
     FdLock gcLock(fdGCLock.get(), ltWrite, true, "waiting for the big garbage collector lock...");
+
+#if HAVE_STATVFS
+    if (gcTrigger == GCTrigger::Auto) {
+        /* Another GC may have freed enough space while we waited;
+           recheck to avoid a redundant traversal. */
+        auto avail = getAvailableStoreSpace(*config);
+        if (avail >= gcSettings.minFree || avail >= gcSettings.maxFree) {
+            printInfo("skipping auto-GC because available space is now %s", renderSize(avail));
+            return;
+        }
+        maxFreed = gcSettings.maxFree - avail;
+        printInfo("continuing auto-GC to free %d bytes", maxFreed);
+    }
+#endif
+
+    if (shouldDelete && gcTrigger == GCTrigger::Auto)
+        deletePath(reservedPath);
 
     /* Synchronisation point to test ENOENT handling in
        addTempRoot(), see tests/gc-non-blocking.sh. */
@@ -564,8 +615,8 @@ void LocalStore::collectGarbage(const GCOptions & options, GCResults & results)
 
         results.bytesFreed += bytesFreed;
 
-        if (results.bytesFreed > options.maxFreed) {
-            printInfo("deleted more than %d bytes; stopping", options.maxFreed);
+        if (results.bytesFreed > maxFreed) {
+            printInfo("deleted more than %d bytes; stopping", maxFreed);
             throw GCLimitReached();
         }
     };
@@ -757,7 +808,7 @@ void LocalStore::collectGarbage(const GCOptions & options, GCResults & results)
                     }
                 },
                 [&](const GCOptions::WholeStore & _) {
-                    if (options.maxFreed == 0)
+                    if (maxFreed == 0)
                         return;
 
                     switch (options.action) {
@@ -870,19 +921,6 @@ void LocalStore::autoGC(bool sync)
 #if HAVE_STATVFS
     const auto & gcSettings = config->getLocalSettings().getGCSettings();
 
-    static auto fakeFreeSpaceFile = getEnv("_NIX_TEST_FREE_SPACE_FILE");
-
-    auto getAvail = [this]() -> uint64_t {
-        if (fakeFreeSpaceFile)
-            return std::stoll(readFile(*fakeFreeSpaceFile));
-
-        struct statvfs st;
-        if (statvfs(config->realStoreDir.get().c_str(), &st))
-            throw SysError("getting filesystem info about '%s'", PathFmt(config->realStoreDir.get()));
-
-        return (uint64_t) st.f_bavail * st.f_frsize;
-    };
-
     std::shared_future<void> future;
 
     {
@@ -899,7 +937,7 @@ void LocalStore::autoGC(bool sync)
         if (now < state->lastGCCheck + std::chrono::seconds(gcSettings.minFreeCheckInterval))
             return;
 
-        auto avail = getAvail();
+        auto avail = getAvailableStoreSpace(*config);
 
         state->lastGCCheck = now;
 
@@ -914,7 +952,7 @@ void LocalStore::autoGC(bool sync)
         std::promise<void> promise;
         future = state->gcFuture = promise.get_future().share();
 
-        std::thread([promise{std::move(promise)}, this, avail, getAvail, &gcSettings]() mutable {
+        std::thread([promise{std::move(promise)}, this]() mutable {
             try {
 
                 /* Wake up any threads waiting for the auto-GC to finish. */
@@ -926,15 +964,14 @@ void LocalStore::autoGC(bool sync)
                 });
 
                 GCOptions options;
-                options.maxFreed = gcSettings.maxFree - avail;
 
-                printInfo("running auto-GC to free %d bytes", options.maxFreed);
+                printInfo("running auto-GC");
 
                 GCResults results;
 
-                collectGarbage(options, results);
+                collectGarbage(options, results, GCTrigger::Auto);
 
-                _state->lock()->availAfterGC = getAvail();
+                _state->lock()->availAfterGC = getAvailableStoreSpace(*config);
 
             } catch (...) {
                 // FIXME: we could propagate the exception to the
